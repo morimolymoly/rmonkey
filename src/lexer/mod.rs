@@ -11,7 +11,7 @@ pub struct Lexer {
 
 impl Lexer {
     pub fn new(input: String) -> Lexer {
-        let mut  l = Lexer{
+        let mut l = Lexer {
             input,
             position: 0,
             read_position: 0,
@@ -31,7 +31,7 @@ impl Lexer {
                     Some('=') => {
                         self.read_char();
                         token::Token::Equal
-                    },
+                    }
                     Some(c) => token::Token::Assign,
                     None => token::Token::Assign,
                 };
@@ -49,7 +49,7 @@ impl Lexer {
                     Some('=') => {
                         self.read_char();
                         token::Token::NotEqual
-                    },
+                    }
                     Some(_) => token::Token::Bang,
                     None => token::Token::Bang,
                 };
@@ -64,10 +64,10 @@ impl Lexer {
                     self.read_identifier()
                 } else if Lexer::is_digit(c) {
                     self.read_number()
-                } else{
+                } else {
                     token::Token::Illegal
                 }
-            },
+            }
         }
     }
 
@@ -86,7 +86,7 @@ impl Lexer {
         let mut str1 = "".to_string();
         for (i, c) in self.input.chars().enumerate() {
             // read_char()ed@next_token
-            if i >= pos-1 && i < self.position {
+            if i >= pos - 1 && i < self.position {
                 str1.push(c);
             }
         }
@@ -109,7 +109,7 @@ impl Lexer {
         let mut str1 = "".to_string();
         for (i, c) in self.input.chars().enumerate() {
             // read_char()ed@next_token
-            if i >= pos-1 && i < self.position {
+            if i >= pos - 1 && i < self.position {
                 str1.push(c);
             }
         }
@@ -121,7 +121,7 @@ impl Lexer {
     fn skip_whitespace(&mut self) {
         loop {
             if let Some(c) = self.ch {
-                if c == ' ' || c == '\t' || c == '\n' || c == '\r'{
+                if c == ' ' || c == '\t' || c == '\n' || c == '\r' {
                     self.read_char();
                 } else {
                     break;
@@ -147,7 +147,7 @@ impl Lexer {
             None
         } else {
             // read_char()ed@next_token
-            self.input.chars().nth(self.read_position-1)
+            self.input.chars().nth(self.read_position - 1)
         }
     }
 
@@ -165,7 +165,8 @@ mod tests {
 
     #[test]
     fn test_next_token() {
-        let input = String::from("let five = 5;
+        let input = String::from(
+            "let five = 5;
             let ten = 10;
 
             let add = fn(x,y) {
@@ -185,7 +186,8 @@ mod tests {
 
             10 == 10;
             10 != 0;
-        ");
+        ",
+        );
 
         let tests = vec![
             token::Token::Let,
@@ -193,13 +195,11 @@ mod tests {
             token::Token::Assign,
             token::Token::Int(5),
             token::Token::Semicolon,
-
             token::Token::Let,
             token::Token::Ident("ten".to_string()),
             token::Token::Assign,
             token::Token::Int(10),
             token::Token::Semicolon,
-
             token::Token::Let,
             token::Token::Ident("add".to_string()),
             token::Token::Assign,
@@ -216,7 +216,6 @@ mod tests {
             token::Token::Semicolon,
             token::Token::RBrace,
             token::Token::Semicolon,
-
             token::Token::Let,
             token::Token::Ident("result".to_string()),
             token::Token::Assign,
@@ -227,21 +226,18 @@ mod tests {
             token::Token::Ident("ten".to_string()),
             token::Token::RParen,
             token::Token::Semicolon,
-
             token::Token::Bang,
             token::Token::Minus,
             token::Token::Slash,
             token::Token::Asterisk,
             token::Token::Int(5),
             token::Token::Semicolon,
-
             token::Token::Int(5),
             token::Token::LT,
             token::Token::Int(10),
             token::Token::GT,
             token::Token::Int(5),
             token::Token::Semicolon,
-
             token::Token::If,
             token::Token::LParen,
             token::Token::Int(5),
@@ -259,17 +255,14 @@ mod tests {
             token::Token::False,
             token::Token::Semicolon,
             token::Token::RBrace,
-
             token::Token::Int(10),
             token::Token::Equal,
             token::Token::Int(10),
             token::Token::Semicolon,
-
             token::Token::Int(10),
             token::Token::NotEqual,
             token::Token::Int(0),
             token::Token::Semicolon,
-
             token::Token::EOF,
         ];
 
@@ -278,7 +271,10 @@ mod tests {
         for (i, expected_token) in tests.iter().enumerate() {
             let tok = l.next_token();
             if tok != *expected_token {
-                panic!("test[{}] is failed! mismatched token expected:{:?} got:{:?}", i, expected_token, tok);
+                panic!(
+                    "test[{}] is failed! mismatched token expected:{:?} got:{:?}",
+                    i, expected_token, tok
+                );
             }
         }
     }

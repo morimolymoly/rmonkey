@@ -1,13 +1,13 @@
-use std::io::{self, Read, Write};
 use crate::lexer;
 use crate::token;
+use std::io::{self, Read, Write};
 
 const PROMPT: &str = ">> ";
 
 pub fn Start(in_io: &mut Read, out_io: &mut Write) {
     const BUFFER_SIZE: usize = 32 * 1024;
     loop {
-        let mut buf = [0;BUFFER_SIZE];
+        let mut buf = [0; BUFFER_SIZE];
         println!("{}", PROMPT);
 
         if let Ok(n) = in_io.read(&mut buf) {
