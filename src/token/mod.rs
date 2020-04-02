@@ -8,6 +8,12 @@ pub enum Token {
     Int(u32),
     Assign,
     Plus,
+    Minus,
+    Bang,
+    Asterisk,
+    Slash,
+    LT,
+    GT,
     Comma,
     Semicolon,
     LParen,
@@ -16,12 +22,24 @@ pub enum Token {
     RBrace,
     Function,
     Let,
+    True,
+    False,
+    Return,
+    If,
+    Else,
+    Equal,
+    NotEqual,
 }
 
 pub fn token_from_literal(literal: String) -> Token {
     match &*literal {
         "let" => Token::Let,
         "fn" => Token::Function,
+        "true" => Token::True,
+        "false" => Token::False,
+        "return" => Token::Return,
+        "if" => Token::If,
+        "else" => Token::Else,
         _ => Token::Ident(literal),
     }
 }

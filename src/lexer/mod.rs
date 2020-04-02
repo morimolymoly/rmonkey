@@ -24,13 +24,18 @@ impl Lexer {
     pub fn next_token(&mut self) -> token::Token {
         self.skip_whitespace();
         let ch = self.ch;
-        /*
-        if let Some(c) = ch {
-            println!("current char {}", c);
-        }*/
         self.read_char();
         match ch {
-            Some('=') => token::Token::Assign,
+            Some('=') => {
+                return match self.peak_char() {
+                    Some('=') => {
+                        self.read_char();
+                        token::Token::Equal
+                    },
+                    Some(c) => token::Token::Assign,
+                    None => token::Token::Assign,
+                };
+            }
             Some(';') => token::Token::Semicolon,
             Some('(') => token::Token::LParen,
             Some(')') => token::Token::RParen,
@@ -38,6 +43,21 @@ impl Lexer {
             Some('+') => token::Token::Plus,
             Some('{') => token::Token::LBrace,
             Some('}') => token::Token::RBrace,
+            Some('-') => token::Token::Minus,
+            Some('!') => {
+                return match self.peak_char() {
+                    Some('=') => {
+                        self.read_char();
+                        token::Token::NotEqual
+                    },
+                    Some(_) => token::Token::Bang,
+                    None => token::Token::Bang,
+                };
+            }
+            Some('*') => token::Token::Asterisk,
+            Some('/') => token::Token::Slash,
+            Some('<') => token::Token::LT,
+            Some('>') => token::Token::GT,
             None => token::Token::EOF,
             Some(c) => {
                 if Lexer::is_letter(c) {
@@ -120,6 +140,14 @@ impl Lexer {
         self.read_position += 1;
     }
 
+    fn peak_char(&mut self) -> Option<char> {
+        if self.read_position >= self.input.len() {
+            None
+        } else {
+            self.input.chars().nth(self.read_position-1)
+        }
+    }
+
     fn is_letter(c: char) -> bool {
         c.is_ascii_alphabetic() || c == '_'
     }
@@ -142,6 +170,18 @@ mod tests {
             };
 
             let result = add(five, ten);
+
+            !-/*5;
+            5 < 10 > 5;
+
+            if (5 < 10) {
+                return true;
+            } else {
+                return false;
+            }
+
+            10 == 10;
+            10 != 0;
         ");
 
         let tests = vec![
@@ -150,11 +190,13 @@ mod tests {
             token::Token::Assign,
             token::Token::Int(5),
             token::Token::Semicolon,
+
             token::Token::Let,
             token::Token::Ident("ten".to_string()),
             token::Token::Assign,
             token::Token::Int(10),
             token::Token::Semicolon,
+
             token::Token::Let,
             token::Token::Ident("add".to_string()),
             token::Token::Assign,
@@ -171,6 +213,7 @@ mod tests {
             token::Token::Semicolon,
             token::Token::RBrace,
             token::Token::Semicolon,
+
             token::Token::Let,
             token::Token::Ident("result".to_string()),
             token::Token::Assign,
@@ -181,6 +224,49 @@ mod tests {
             token::Token::Ident("ten".to_string()),
             token::Token::RParen,
             token::Token::Semicolon,
+
+            token::Token::Bang,
+            token::Token::Minus,
+            token::Token::Slash,
+            token::Token::Asterisk,
+            token::Token::Int(5),
+            token::Token::Semicolon,
+
+            token::Token::Int(5),
+            token::Token::LT,
+            token::Token::Int(10),
+            token::Token::GT,
+            token::Token::Int(5),
+            token::Token::Semicolon,
+
+            token::Token::If,
+            token::Token::LParen,
+            token::Token::Int(5),
+            token::Token::LT,
+            token::Token::Int(10),
+            token::Token::RParen,
+            token::Token::LBrace,
+            token::Token::Return,
+            token::Token::True,
+            token::Token::Semicolon,
+            token::Token::RBrace,
+            token::Token::Else,
+            token::Token::LBrace,
+            token::Token::Return,
+            token::Token::False,
+            token::Token::Semicolon,
+            token::Token::RBrace,
+
+            token::Token::Int(10),
+            token::Token::Equal,
+            token::Token::Int(10),
+            token::Token::Semicolon,
+
+            token::Token::Int(10),
+            token::Token::NotEqual,
+            token::Token::Int(0),
+            token::Token::Semicolon,
+
             token::Token::EOF,
         ];
 
