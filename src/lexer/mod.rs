@@ -85,6 +85,7 @@ impl Lexer {
 
         let mut str1 = "".to_string();
         for (i, c) in self.input.chars().enumerate() {
+            // read_char()ed@next_token
             if i >= pos-1 && i < self.position {
                 str1.push(c);
             }
@@ -107,6 +108,7 @@ impl Lexer {
 
         let mut str1 = "".to_string();
         for (i, c) in self.input.chars().enumerate() {
+            // read_char()ed@next_token
             if i >= pos-1 && i < self.position {
                 str1.push(c);
             }
@@ -144,6 +146,7 @@ impl Lexer {
         if self.read_position >= self.input.len() {
             None
         } else {
+            // read_char()ed@next_token
             self.input.chars().nth(self.read_position-1)
         }
     }
