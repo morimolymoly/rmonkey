@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use crate::token;
 
 struct Lexer {
@@ -131,7 +133,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn TestNextToken() {
+    fn test_next_token() {
         let input = String::from("let five = 5;
             let ten = 10;
 
