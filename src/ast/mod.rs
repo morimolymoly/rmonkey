@@ -10,7 +10,7 @@ pub struct Program {
 
 impl Program {
     pub fn new() -> Program {
-        Program{
+        Program {
             statements: Vec::new(),
         }
     }

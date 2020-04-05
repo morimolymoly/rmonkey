@@ -8,7 +8,7 @@ pub struct LetStatement {
     pub expression: Option<Box<dyn Expression>>,
 }
 
-impl LetStatement{
+impl LetStatement {
     pub fn new() -> LetStatement {
         LetStatement {
             token: token::Token::Illegal,

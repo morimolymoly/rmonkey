@@ -32,7 +32,7 @@ impl Parser {
     fn parse_statement(&mut self) -> Option<Box<dyn ast::traits::Prog>> {
         match self.cur_token {
             token::Token::Let => Some(Box::new(self.parse_let_statement().unwrap())),
-            _ => None
+            _ => None,
         }
     }
 
@@ -60,25 +60,21 @@ impl Parser {
 
     fn cur_token_is(&self, token: token::Token) -> bool {
         match token {
-            token::Token::Ident(_) => {
-                match self.cur_token {
-                    token::Token::Ident(_) => true,
-                    _ => false
-                }
+            token::Token::Ident(_) => match self.cur_token {
+                token::Token::Ident(_) => true,
+                _ => false,
             },
-            _ => self.cur_token == token
+            _ => self.cur_token == token,
         }
     }
 
     fn peek_token_is(&self, token: token::Token) -> bool {
         match token {
-            token::Token::Ident(_) => {
-                match self.peek_token {
-                    token::Token::Ident(_) => true,
-                    _ => false
-                }
+            token::Token::Ident(_) => match self.peek_token {
+                token::Token::Ident(_) => true,
+                _ => false,
             },
-            _ => self.peek_token == token
+            _ => self.peek_token == token,
         }
     }
 
