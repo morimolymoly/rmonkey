@@ -8,5 +8,5 @@ fn main() {
     let mut reader = r.lock();
     let w = io::stdout();
     let mut writer = w.lock();
-    repl::Start(&mut reader, &mut writer);
+    repl::start(&mut reader, &mut writer);
 }

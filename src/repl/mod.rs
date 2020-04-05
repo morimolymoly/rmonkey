@@ -1,10 +1,13 @@
+#![allow(unused_variables)]
+#![allow(unused_imports)]
+
 use crate::lexer;
 use crate::token;
 use std::io::{self, Read, Write};
 
 const PROMPT: &str = ">> ";
 
-pub fn Start(in_io: &mut Read, out_io: &mut Write) {
+pub fn start(in_io: &mut dyn Read, out_io: &mut dyn Write) {
     const BUFFER_SIZE: usize = 32 * 1024;
     loop {
         let mut buf = [0; BUFFER_SIZE];

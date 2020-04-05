@@ -32,7 +32,7 @@ impl Lexer {
                         self.read_char();
                         token::Token::Equal
                     }
-                    Some(c) => token::Token::Assign,
+                    Some(_) => token::Token::Assign,
                     None => token::Token::Assign,
                 };
             }
