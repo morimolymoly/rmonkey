@@ -9,6 +9,7 @@ pub struct Parser {
     l: lexer::Lexer,
     cur_token: token::Token,
     peek_token: token::Token,
+    errors: Vec<String>,
 }
 
 impl Parser {
@@ -17,6 +18,7 @@ impl Parser {
             l,
             cur_token: token::Token::Illegal,
             peek_token: token::Token::Illegal,
+            errors: Vec::new(),
         };
         p.next_token();
         p.next_token();
@@ -31,7 +33,13 @@ impl Parser {
 
     fn parse_statement(&mut self) -> Option<Box<dyn ast::traits::Prog>> {
         match self.cur_token {
-            token::Token::Let => Some(Box::new(self.parse_let_statement().unwrap())),
+            token::Token::Let => {
+                let ps = self.parse_let_statement();
+                match ps {
+                    Some(p) => Some(Box::new(p)),
+                    None => None,
+                }
+            }
             _ => None,
         }
     }
@@ -79,10 +87,11 @@ impl Parser {
     }
 
     fn expect_peek(&mut self, t: token::Token) -> bool {
-        if self.peek_token_is(t) {
+        if self.peek_token_is(t.clone()) {
             self.next_token();
             true
         } else {
+            self.peek_error(t.clone());
             false
         }
     }
@@ -97,6 +106,17 @@ impl Parser {
             self.next_token();
         }
         Some(p)
+    }
+
+    pub fn get_errors(&self) -> &Vec<String> {
+        &self.errors
+    }
+
+    fn peek_error(&mut self, t: token::Token) {
+        self.errors.push(format!(
+            "expected next token to be {:?}, got {:?} instead.",
+            t, self.peek_token
+        ));
     }
 }
 
@@ -116,6 +136,7 @@ mod tests {
         let mut p = Parser::new(l);
 
         let program = p.parse_program();
+        check_parser_errors(&p);
         if let None = program {
             panic!("parse_program returned None");
         }
@@ -154,5 +175,17 @@ mod tests {
             );
         }
         println!("{} {}", let_s.token_literal(), let_s.name.token_literal());
+    }
+
+    fn check_parser_errors(p: &Parser) {
+        let errs = p.get_errors();
+        if errs.len() == 0 {
+            return;
+        }
+
+        println!("parser has {} errors", errs.len());
+        for msg in errs.iter() {
+            println!("{}", msg);
+        }
     }
 }
