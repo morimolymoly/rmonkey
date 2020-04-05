@@ -2,6 +2,11 @@ use crate::ast::traits::*;
 use crate::token;
 use std::any::Any;
 
+/*
+statementes needs to implement Prog, Node, Statement traits.
+others need to implement Node.
+*/
+
 pub struct LetStatement {
     pub token: token::Token,
     pub name: Identifier,
@@ -52,5 +57,35 @@ impl Node for Identifier {
             token::Token::Ident(s) => s.clone(),
             _ => String::new(),
         }
+    }
+}
+
+pub struct ReturnStatement {
+    pub token: token::Token,
+    pub return_value: Option<Box<dyn Expression>>,
+}
+
+impl ReturnStatement {
+    pub fn new() -> ReturnStatement {
+        ReturnStatement {
+            token: token::Token::Illegal,
+            return_value: None,
+        }
+    }
+}
+
+impl Prog for ReturnStatement {}
+
+impl Statement for ReturnStatement {
+    fn statement_node(&self) {}
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+}
+
+impl Node for ReturnStatement {
+    fn token_literal(&self) -> String {
+        String::from("return")
     }
 }

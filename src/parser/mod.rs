@@ -40,6 +40,13 @@ impl Parser {
                     None => None,
                 }
             }
+            token::Token::Return => {
+                let ps = self.parse_return_statement();
+                match ps {
+                    Some(p) => Some(Box::new(p)),
+                    None => None,
+                }
+            }
             _ => None,
         }
     }
@@ -58,6 +65,19 @@ impl Parser {
         if !self.expect_peek(token::Token::Assign) {
             return None;
         }
+
+        while !self.cur_token_is(token::Token::Semicolon) {
+            self.next_token();
+        }
+
+        Some(stmt)
+    }
+
+    fn parse_return_statement(&mut self) -> Option<ast::nodes::ReturnStatement> {
+        let mut stmt = ast::nodes::ReturnStatement::new();
+        stmt.token = self.cur_token.clone();
+
+        self.next_token();
 
         while !self.cur_token_is(token::Token::Semicolon) {
             self.next_token();
@@ -175,6 +195,47 @@ mod tests {
             );
         }
         println!("{} {}", let_s.token_literal(), let_s.name.token_literal());
+    }
+
+    #[test]
+    fn test_return_statements() {
+        let input = String::from(
+            "
+        return 5;
+        return 10;
+        return 114514;
+        ",
+        );
+        let mut l = lexer::Lexer::new(input);
+        let mut p = Parser::new(l);
+
+        let program = p.parse_program();
+        check_parser_errors(&p);
+        if let None = program {
+            panic!("parse_program returned None");
+        }
+
+        let program = program.unwrap();
+
+        if program.statements.len() != 3 {
+            panic!(
+                "program.statements does not contain 3 statements, got={}",
+                program.statements.len()
+            );
+        }
+
+        for stmt in program.statements {
+            let let_s = match stmt.as_any().downcast_ref::<ast::nodes::ReturnStatement>() {
+                Some(laststatement) => laststatement,
+                None => panic!("stmt is not a ast::nodes::LetStatement!"),
+            };
+            if let_s.token_literal() != "return" {
+                panic!(
+                    "let_s.token_literal not return. got {}",
+                    let_s.token_literal()
+                );
+            }
+        }
     }
 
     fn check_parser_errors(p: &Parser) {
