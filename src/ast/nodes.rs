@@ -104,6 +104,34 @@ impl Node for ExpressionStatement {
     }
 }
 
+pub struct IntegerLiteral {
+    pub token: token::Token,
+}
+
+impl IntegerLiteral {
+    pub fn new() -> IntegerLiteral {
+        IntegerLiteral {
+            token: token::Token::Illegal,
+        }
+    }
+}
+
+impl Node for IntegerLiteral {
+    fn token_literal(&self) -> String {
+        if let token::Token::Int(i) = self.token {
+            return i.to_string();
+        }
+        String::from("")
+    }
+}
+
+impl Expression for IntegerLiteral {
+    fn expresison_node(&self) {}
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+}
+
 pub struct Identifier {
     pub token: token::Token,
 }

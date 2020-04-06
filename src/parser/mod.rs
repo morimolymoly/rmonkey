@@ -128,6 +128,11 @@ impl Parser {
                 tok.token = self.cur_token.clone();
                 Some(Box::new(tok))
             }
+            token::Token::Int(d) => {
+                let mut tok = ast::nodes::IntegerLiteral::new();
+                tok.token = self.cur_token.clone();
+                Some(Box::new(tok))
+            }
             _ => None,
         }
     }
@@ -338,5 +343,52 @@ mod tests {
             panic!("ident is not a Ident(foobar), got:{:?}", ident.token);
         }
         println!("got token{:?}", ident.token);
+    }
+
+    #[test]
+    fn test_integer_literal_expression() {
+        let input = String::from("5;");
+        let mut l = lexer::Lexer::new(input);
+        let mut p = Parser::new(l);
+
+        let program = p.parse_program();
+        check_parser_errors(&p);
+        if let None = program {
+            panic!("parse_program returned None");
+        }
+
+        let program = program.unwrap();
+
+        if program.statements.len() != 1 {
+            panic!(
+                "program.statements does not contain 1 statements, got={}",
+                program.statements.len()
+            );
+        }
+        let stmt = match program.statements[0]
+            .as_any()
+            .downcast_ref::<ast::nodes::ExpressionStatement>()
+        {
+            Some(laststatement) => laststatement,
+            None => panic!("stmt is not a ast::nodes::ExpressionStatement!"),
+        };
+
+        let expression = match &stmt.expression {
+            Some(s) => s,
+            None => panic!("expression is None!"),
+        };
+
+        let integer = match expression
+            .as_any()
+            .downcast_ref::<ast::nodes::IntegerLiteral>()
+        {
+            Some(s) => s,
+            None => panic!("expression is not Identifier"),
+        };
+
+        if integer.token != token::Token::Int(5) {
+            panic!("ident is not a Ident(foobar), got:{:?}", integer.token);
+        }
+        println!("got token{:?}", integer.token);
     }
 }
