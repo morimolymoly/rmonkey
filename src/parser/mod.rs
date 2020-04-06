@@ -468,15 +468,14 @@ mod tests {
         }
     }
 
-    struct infixTest {
-        input: String,
-        left: Box<dyn Any>,
-        operator: String,
-        right: Box<dyn Any>,
-    }
-
     #[test]
     fn test_parsing_infix_expressions() {
+        struct infixTest {
+            input: String,
+            left: Box<dyn Any>,
+            operator: String,
+            right: Box<dyn Any>,
+        }
         let mut infix_tests = vec![
             infixTest {
                 input: String::from("5 + 5;"),
