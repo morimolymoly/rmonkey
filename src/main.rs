@@ -22,6 +22,7 @@ fn main() {
     true;
     false;
     10 == 10
+    3<5 ==true
 ",
     ));
     let mut p = parser::Parser::new(l);

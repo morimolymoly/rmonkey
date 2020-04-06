@@ -123,7 +123,7 @@ pub struct PrefixExpression {
     pub right: Option<Box<dyn Exp>>,
 }
 
-impl Exp for PrefixExpression{
+impl Exp for PrefixExpression {
     fn box_clone(&self) -> Box<dyn Exp> {
         Box::new((*self).clone())
     }
@@ -167,7 +167,7 @@ pub struct InfixExpression {
     pub right: Option<Box<dyn Exp>>,
 }
 
-impl Exp for InfixExpression{
+impl Exp for InfixExpression {
     fn box_clone(&self) -> Box<dyn Exp> {
         Box::new((*self).clone())
     }
@@ -210,7 +210,7 @@ pub struct IntegerLiteral {
     pub token: token::Token,
 }
 
-impl Exp for IntegerLiteral{
+impl Exp for IntegerLiteral {
     fn box_clone(&self) -> Box<dyn Exp> {
         Box::new((*self).clone())
     }
@@ -248,7 +248,7 @@ pub struct Identifier {
     pub token: token::Token,
 }
 
-impl Exp for Identifier{
+impl Exp for Identifier {
     fn box_clone(&self) -> Box<dyn Exp> {
         Box::new((*self).clone())
     }
@@ -289,7 +289,7 @@ pub struct Boolean {
     pub token: token::Token,
 }
 
-impl Exp for Boolean{
+impl Exp for Boolean {
     fn box_clone(&self) -> Box<dyn Exp> {
         Box::new((*self).clone())
     }

@@ -28,7 +28,7 @@ impl Node for Program {
     fn String(&self) -> String {
         let mut string = String::from("");
         for s in self.statements.iter() {
-            string.push_str(&format!("{}\n", s.String()))
+            string.push_str(&format!("{}", s.String()))
         }
         string
     }

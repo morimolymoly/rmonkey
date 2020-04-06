@@ -400,24 +400,23 @@ mod tests {
         test_integer_literal(expression, 5);
     }
 
-    struct prefixTest {
-        input: String,
-        operator: token::Token,
-        integer: token::Token,
-    }
-
     #[test]
     fn test_parsing_prefix_expressions() {
+        struct prefixTest {
+            input: String,
+            operator: token::Token,
+            value: Box<dyn Any>,
+        }
         let mut prefix_tests = vec![
             prefixTest {
                 input: String::from("!5;"),
                 operator: token::Token::Bang,
-                integer: token::Token::Int(5),
+                value: Box::new(5),
             },
             prefixTest {
                 input: String::from("-15;"),
                 operator: token::Token::Minus,
-                integer: token::Token::Int(15),
+                value: Box::new(15),
             },
         ];
 
@@ -465,28 +464,15 @@ mod tests {
                     test.operator, exp.operator
                 );
             }
-
-            let test_num = match test.integer {
-                token::Token::Int(d) => d,
-                _ => 0,
-            };
-
-            let right = match &exp.right {
-                Some(r) => r,
-                None => panic!("right expression is None!"),
-            };
-
-            if !test_integer_literal(&right, test_num) {
-                return;
-            }
+            test_literal_expression(&exp.right.as_ref().unwrap(), &test.value);
         }
     }
 
     struct infixTest {
         input: String,
-        left: u32,
+        left: Box<dyn Any>,
         operator: String,
-        right: u32,
+        right: Box<dyn Any>,
     }
 
     #[test]
@@ -494,51 +480,69 @@ mod tests {
         let mut infix_tests = vec![
             infixTest {
                 input: String::from("5 + 5;"),
-                left: 5,
+                left: Box::new(5),
                 operator: String::from("+"),
-                right: 5,
+                right: Box::new(5),
             },
             infixTest {
                 input: String::from("5 - 5;"),
-                left: 5,
+                left: Box::new(5),
                 operator: String::from("-"),
-                right: 5,
+                right: Box::new(5),
             },
             infixTest {
                 input: String::from("5 * 5;"),
-                left: 5,
+                left: Box::new(5),
                 operator: String::from("*"),
-                right: 5,
+                right: Box::new(5),
             },
             infixTest {
                 input: String::from("5 / 5;"),
-                left: 5,
+                left: Box::new(5),
                 operator: String::from("/"),
-                right: 5,
+                right: Box::new(5),
             },
             infixTest {
                 input: String::from("5 > 5;"),
-                left: 5,
+                left: Box::new(5),
                 operator: String::from(">"),
-                right: 5,
+                right: Box::new(5),
             },
             infixTest {
                 input: String::from("5 < 5;"),
-                left: 5,
+                left: Box::new(5),
                 operator: String::from("<"),
-                right: 5,
+                right: Box::new(5),
             },
             infixTest {
                 input: String::from("5 == 5;"),
-                left: 5,
+                left: Box::new(5),
                 operator: String::from("=="),
-                right: 5,
+                right: Box::new(5),
             },
             infixTest {
                 input: String::from("5 != 5;"),
-                left: 5,
+                left: Box::new(5),
                 operator: String::from("!="),
-                right: 5,
+                right: Box::new(5),
+            },
+            infixTest {
+                input: String::from("true == true;"),
+                left: Box::new(true),
+                operator: String::from("=="),
+                right: Box::new(true),
+            },
+            infixTest {
+                input: String::from("true != false;"),
+                left: Box::new(true),
+                operator: String::from("!="),
+                right: Box::new(false),
+            },
+            infixTest {
+                input: String::from("false == false;"),
+                left: Box::new(false),
+                operator: String::from("=="),
+                right: Box::new(false),
             },
         ];
 
@@ -622,6 +626,42 @@ mod tests {
         }
     }
 
+    #[test]
+    fn test_operator_precedence_parsing() {
+        struct testcase {
+            input: String,
+            expected: String,
+        }
+
+        let mut tests = vec![
+            testcase {
+                input: String::from("true;"),
+                expected: String::from("true"),
+            },
+            testcase {
+                input: String::from("false;"),
+                expected: String::from("false"),
+            },
+            testcase {
+                input: String::from("3>5 == false;"),
+                expected: String::from("( ( 3 > 5 ) == false )"),
+            },
+            testcase {
+                input: String::from("3<5 ==true;"),
+                expected: String::from("( ( 3 < 5 ) == true )"),
+            },
+        ];
+
+        for t in tests.iter() {
+            let mut l = lexer::Lexer::new(t.input.clone());
+            let mut p = Parser::new(l);
+            let program = p.parse_program().unwrap();
+            if program.String() != t.expected {
+                panic!("actual:{}, got:{}", t.expected, program.String());
+            }
+        }
+    }
+
     fn test_let_statement(s: &Box<dyn ast::traits::Prog>, name: String) {
         let let_s = match s.as_any().downcast_ref::<ast::nodes::LetStatement>() {
             Some(letstatement) => letstatement,
@@ -641,6 +681,8 @@ mod tests {
             return test_identifier(exp, v.clone());
         } else if let Some(v) = expected.downcast_ref::<u32>() {
             return test_integer_literal(exp, *v);
+        } else if let Some(v) = expected.downcast_ref::<bool>() {
+            return test_bootlean_literal(exp, *v);
         }
         false
     }
@@ -715,10 +757,29 @@ mod tests {
         };
 
         if integer.token != token::Token::Int(value) {
-            println!("ident is not a Ident(foobar), got:{:?}", integer.token);
+            println!("ident is not a Ident({}), got:{:?}", value, integer.token);
             return false;
         }
         println!("got token{:?}", integer.token);
+        return true;
+    }
+
+    fn test_bootlean_literal(il: &Box<dyn ast::traits::Exp>, value: bool) -> bool {
+        let boolean = match il.as_any().downcast_ref::<ast::nodes::Boolean>() {
+            Some(s) => s,
+            None => {
+                println!("expression is not Boolean");
+                return false;
+            }
+        };
+
+        if boolean.token != token::Token::Boolean(value) {
+            println!(
+                "boolean is not a Boolean({}), got:{:?}",
+                value, boolean.token
+            );
+            return false;
+        }
         return true;
     }
 
