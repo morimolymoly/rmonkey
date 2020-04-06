@@ -14,4 +14,5 @@ pub trait Statement {
 
 pub trait Expression {
     fn expresison_node(&self);
+    fn as_any(&self) -> &dyn Any;
 }

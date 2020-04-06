@@ -5,6 +5,11 @@ use std::any::Any;
 /*
 statementes needs to implement Prog, Node, Statement traits.
 others need to implement Node.
+
+Implemented Statement
+* LetStatement
+* ReturnStatement
+* ExpressionStatement
 */
 
 pub struct LetStatement {
@@ -39,27 +44,6 @@ impl Statement for LetStatement {
     }
 }
 
-pub struct Identifier {
-    pub token: token::Token,
-}
-
-impl Identifier {
-    pub fn new() -> Identifier {
-        Identifier {
-            token: token::Token::Illegal,
-        }
-    }
-}
-
-impl Node for Identifier {
-    fn token_literal(&self) -> String {
-        match &self.token {
-            token::Token::Ident(s) => s.clone(),
-            _ => String::new(),
-        }
-    }
-}
-
 pub struct ReturnStatement {
     pub token: token::Token,
     pub return_value: Option<Box<dyn Expression>>,
@@ -87,5 +71,66 @@ impl Statement for ReturnStatement {
 impl Node for ReturnStatement {
     fn token_literal(&self) -> String {
         String::from("return")
+    }
+}
+
+pub struct ExpressionStatement {
+    pub token: token::Token,
+    pub expression: Option<Box<dyn Expression>>,
+}
+
+impl Prog for ExpressionStatement {}
+
+impl ExpressionStatement {
+    pub fn new() -> ExpressionStatement {
+        ExpressionStatement {
+            token: token::Token::Illegal,
+            expression: None,
+        }
+    }
+}
+
+impl Statement for ExpressionStatement {
+    fn statement_node(&self) {}
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+}
+
+impl Node for ExpressionStatement {
+    fn token_literal(&self) -> String {
+        String::from("")
+    }
+}
+
+pub struct Identifier {
+    pub token: token::Token,
+}
+
+impl Identifier {
+    pub fn new() -> Identifier {
+        Identifier {
+            token: token::Token::Illegal,
+        }
+    }
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+}
+
+impl Node for Identifier {
+    fn token_literal(&self) -> String {
+        match &self.token {
+            token::Token::Ident(s) => s.clone(),
+            _ => String::new(),
+        }
+    }
+}
+
+impl Expression for Identifier {
+    fn expresison_node(&self) {}
+    fn as_any(&self) -> &dyn Any {
+        self
     }
 }
