@@ -147,6 +147,14 @@ impl Parser {
                 let mut tok = ast::nodes::Boolean::new();
                 tok.token = self.cur_token.clone();
                 Some(Box::new(tok))
+            },
+            token::Token::LParen => {
+                self.next_token();
+                let exp = self.parse_expression(Priority::LOWEST);
+                if !self.expect_peek(token::Token::RParen) {
+                    return None
+                }
+                exp
             }
             _ => None,
         }
@@ -643,11 +651,27 @@ mod tests {
             },
             testcase {
                 input: String::from("3>5 == false;"),
-                expected: String::from("( ( 3 > 5 ) == false )"),
+                expected: String::from("((3 > 5) == false)"),
             },
             testcase {
-                input: String::from("3<5 ==true;"),
-                expected: String::from("( ( 3 < 5 ) == true )"),
+                input: String::from("1 + (2 + 3) + 4;"),
+                expected: String::from("((1 + (2 + 3)) + 4)"),
+            },
+            testcase {
+                input: String::from("(5 + 5) * 2;"),
+                expected: String::from("((5 + 5) * 2)"),
+            },
+            testcase {
+                input: String::from("2 / (5 + 5);"),
+                expected: String::from("(2 / (5 + 5))"),
+            },
+            testcase {
+                input: String::from("-(5 + 5);"),
+                expected: String::from("(-(5 + 5))"),
+            },
+            testcase {
+                input: String::from("!(true == true);"),
+                expected: String::from("(!(true == true))"),
             },
         ];
 

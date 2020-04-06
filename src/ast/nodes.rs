@@ -144,11 +144,7 @@ impl Node for PrefixExpression {
         token::string_from_token(self.token.clone())
     }
     fn String(&self) -> String {
-        format!(
-            "( {} {} )",
-            token::string_from_token(self.token.clone()),
-            ""
-        )
+        format!("({}{})", token::string_from_token(self.token.clone()), self.right.as_ref().unwrap().String())
     }
 }
 
@@ -190,7 +186,7 @@ impl Node for InfixExpression {
     }
     fn String(&self) -> String {
         format!(
-            "( {} {} {} )",
+            "({} {} {})",
             self.left.as_ref().unwrap().String(),
             token::string_from_token(self.operator.clone()),
             self.right.as_ref().unwrap().String()

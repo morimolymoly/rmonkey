@@ -17,12 +17,7 @@ fn main() {
     */
     let l = lexer::Lexer::new(String::from(
         "
-    let aaa = 10;
-    10 - 5;
-    true;
-    false;
-    10 == 10
-    3<5 ==true
+        -15;
 ",
     ));
     let mut p = parser::Parser::new(l);
