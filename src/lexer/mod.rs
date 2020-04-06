@@ -186,6 +186,9 @@ mod tests {
 
             10 == 10;
             10 != 0;
+
+            true;
+            false;
         ",
         );
 
@@ -262,6 +265,10 @@ mod tests {
             token::Token::Int(10),
             token::Token::NotEqual,
             token::Token::Int(0),
+            token::Token::Semicolon,
+            token::Token::Boolean(true),
+            token::Token::Semicolon,
+            token::Token::Boolean(false),
             token::Token::Semicolon,
             token::Token::EOF,
         ];

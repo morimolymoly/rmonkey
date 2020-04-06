@@ -204,3 +204,28 @@ impl Expression for Identifier {
         Box::new((*self).clone())
     }
 }
+
+#[derive(Clone)]
+pub struct Boolean {
+    pub token: token::Token,
+}
+
+impl Boolean {
+    pub fn new() -> Boolean {
+        Boolean {
+            token: token::Token::Illegal,
+        }
+    }
+}
+
+impl Node for Boolean {}
+
+impl Expression for Boolean {
+    fn expresison_node(&self) {}
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+    fn box_clone(&self) -> Box<dyn Expression> {
+        Box::new((*self).clone())
+    }
+}

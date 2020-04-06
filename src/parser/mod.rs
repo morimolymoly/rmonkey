@@ -125,7 +125,6 @@ impl Parser {
         while !self.peek_token_is(token::Token::Semicolon) && p < self.peek_priority() {
             self.next_token();
             leftexp = self.parse_infix_expression(leftexp.clone());
-            println!("papa{:?}", self.cur_token);
         }
         Some(leftexp)
     }
@@ -144,6 +143,11 @@ impl Parser {
             }
             token::Token::Bang => self.prefix_parse_ops(),
             token::Token::Minus => self.prefix_parse_ops(),
+            token::Token::Boolean(_) => {
+                let mut tok = ast::nodes::Boolean::new();
+                tok.token = self.cur_token.clone();
+                Some(Box::new(tok))
+            }
             _ => None,
         }
     }
@@ -559,6 +563,56 @@ mod tests {
 
             let stmt = &program.statements[0];
             test_infix_expression(stmt, &test.left, test.operator.clone(), &test.right);
+        }
+    }
+
+    #[test]
+    fn test_boolean_expression() {
+        let input = String::from(
+            "
+        true;
+        false;",
+        );
+
+        let expected_vec = vec![true, false];
+
+        let mut l = lexer::Lexer::new(input);
+        let mut p = Parser::new(l);
+
+        let program = p.parse_program();
+        check_parser_errors(&p);
+        if let None = program {
+            panic!("parse_program returned None");
+        }
+
+        let program = program.unwrap();
+
+        if program.statements.len() != 2 {
+            panic!(
+                "program.statements does not contain 2 statements, got={}",
+                program.statements.len()
+            );
+        }
+
+        for (i, boo) in expected_vec.iter().enumerate() {
+            let stmt = match program.statements[i]
+                .as_any()
+                .downcast_ref::<ast::nodes::ExpressionStatement>()
+            {
+                Some(laststatement) => laststatement,
+                None => panic!("stmt is not a ast::nodes::ExpressionStatement!"),
+            };
+
+            let expression = match stmt.expression.as_ref().unwrap().as_any().downcast_ref::<ast::nodes::Boolean>() {
+                Some(s) => s,
+                None => panic!("expression is None!"),
+            };
+
+            if let token::Token::Boolean(b) = expression.token {
+                if b != *boo {
+                    panic!("expected bool is {} got: {}", expected_vec[i], b);
+                }
+            }
         }
     }
 
