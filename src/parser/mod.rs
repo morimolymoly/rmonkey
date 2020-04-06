@@ -1,15 +1,17 @@
+#![allow(dead_code)]
+
 use crate::ast;
 use crate::lexer;
 use crate::token;
 
 use ast::traits::*;
 use std::any::Any;
-
-use std::collections::HashMap;
+use std::cmp::PartialOrd;
 
 type PrefixParseFn = fn() -> Box<dyn ast::traits::Expression>;
 type InFixParseFn = fn(Box<dyn ast::traits::Expression>) -> Box<dyn ast::traits::Expression>;
 
+#[derive(PartialEq, PartialOrd)]
 enum Priority {
     LOWEST = 1,
     EQUALS = 2,
@@ -118,8 +120,14 @@ impl Parser {
         Some(stmt)
     }
     fn parse_expression(&mut self, p: Priority) -> Option<Box<dyn ast::traits::Expression>> {
-        let ret = self.prefix_parse();
-        ret
+        let mut leftexp = self.prefix_parse().unwrap();
+
+        while !self.peek_token_is(token::Token::Semicolon) && p < self.peek_priority() {
+            self.next_token();
+            leftexp = self.parse_infix_expression(leftexp.clone());
+            println!("papa{:?}", self.cur_token);
+        }
+        Some(leftexp)
     }
 
     fn prefix_parse(&mut self) -> Option<Box<dyn ast::traits::Expression>> {
@@ -200,6 +208,44 @@ impl Parser {
             "expected next token to be {:?}, got {:?} instead.",
             t, self.peek_token
         ));
+    }
+
+    fn peek_priority(&self) -> Priority {
+        self.get_priority(&self.peek_token)
+    }
+
+    fn cur_priority(&self) -> Priority {
+        self.get_priority(&self.cur_token)
+    }
+
+    fn get_priority(&self, tok: &token::Token) -> Priority {
+        match *tok {
+            token::Token::Equal => Priority::EQUALS,
+            token::Token::NotEqual => Priority::EQUALS,
+            token::Token::LT => Priority::LESSGREATER,
+            token::Token::GT => Priority::LESSGREATER,
+            token::Token::Plus => Priority::SUM,
+            token::Token::Minus => Priority::SUM,
+            token::Token::Slash => Priority::PRODUCT,
+            token::Token::Asterisk => Priority::PRODUCT,
+            _ => Priority::LOWEST,
+        }
+    }
+
+    fn parse_infix_expression(
+        &mut self,
+        left: Box<dyn ast::traits::Expression>,
+    ) -> Box<dyn ast::traits::Expression> {
+        let mut exp = ast::nodes::InfixExpression::new();
+        exp.token = self.cur_token.clone();
+        exp.operator = self.cur_token.clone();
+        exp.left = Some(left);
+
+        let priority = self.cur_priority();
+        self.next_token();
+        exp.right = self.parse_expression(priority);
+
+        Box::new(exp)
     }
 }
 
@@ -435,7 +481,142 @@ mod tests {
 
             let right = match &exp.right {
                 Some(r) => r,
-                None => panic!(""),
+                None => panic!("right expression is None!"),
+            };
+
+            if !test_integer_literal(&right, test_num) {
+                return;
+            }
+        }
+    }
+
+    struct infixTest {
+        input: String,
+        left: token::Token,
+        operator: token::Token,
+        right: token::Token,
+    }
+
+    #[test]
+    fn test_parsing_infix_expressions() {
+        let mut infix_tests = vec![
+            infixTest {
+                input: String::from("5 + 5;"),
+                left: token::Token::Int(5),
+                operator: token::Token::Plus,
+                right: token::Token::Int(5),
+            },
+            infixTest {
+                input: String::from("5 - 5;"),
+                left: token::Token::Int(5),
+                operator: token::Token::Minus,
+                right: token::Token::Int(5),
+            },
+            infixTest {
+                input: String::from("5 * 5;"),
+                left: token::Token::Int(5),
+                operator: token::Token::Asterisk,
+                right: token::Token::Int(5),
+            },
+            infixTest {
+                input: String::from("5 / 5;"),
+                left: token::Token::Int(5),
+                operator: token::Token::Slash,
+                right: token::Token::Int(5),
+            },
+            infixTest {
+                input: String::from("5 > 5;"),
+                left: token::Token::Int(5),
+                operator: token::Token::GT,
+                right: token::Token::Int(5),
+            },
+            infixTest {
+                input: String::from("5 < 5;"),
+                left: token::Token::Int(5),
+                operator: token::Token::LT,
+                right: token::Token::Int(5),
+            },
+            infixTest {
+                input: String::from("5 == 5;"),
+                left: token::Token::Int(5),
+                operator: token::Token::Equal,
+                right: token::Token::Int(5),
+            },
+            infixTest {
+                input: String::from("5 != 5;"),
+                left: token::Token::Int(5),
+                operator: token::Token::NotEqual,
+                right: token::Token::Int(5),
+            },
+        ];
+
+        for test in infix_tests.iter() {
+            let mut l = lexer::Lexer::new(test.input.clone());
+            let mut p = Parser::new(l);
+
+            let program = p.parse_program();
+            check_parser_errors(&p);
+            if let None = program {
+                panic!("parse_program returned None");
+            }
+
+            let program = program.unwrap();
+
+            if program.statements.len() != 1 {
+                panic!(
+                    "program.statements does not contain 1 statements, got={}",
+                    program.statements.len()
+                );
+            }
+
+            let stmt = match program.statements[0]
+                .as_any()
+                .downcast_ref::<ast::nodes::ExpressionStatement>()
+            {
+                Some(laststatement) => laststatement,
+                None => panic!("stmt is not a ast::nodes::ExpressionStatement!"),
+            };
+
+            let exp = match stmt
+                .expression
+                .as_ref()
+                .unwrap()
+                .as_any()
+                .downcast_ref::<ast::nodes::InfixExpression>()
+            {
+                Some(pe) => pe,
+                None => panic!("stmt is not a ast::nodes::InfixExpression!"),
+            };
+
+            if exp.operator != test.operator {
+                panic!(
+                    "exp.operator is not {:?}, got={:?}",
+                    test.operator, exp.operator
+                );
+            }
+
+            let test_num = match test.left {
+                token::Token::Int(d) => d,
+                _ => 0,
+            };
+
+            let left = match &exp.left {
+                Some(r) => r,
+                None => panic!("left expression is None!"),
+            };
+
+            if !test_integer_literal(&left, test_num) {
+                return;
+            }
+
+            let test_num = match test.right {
+                token::Token::Int(d) => d,
+                _ => 0,
+            };
+
+            let right = match &exp.right {
+                Some(r) => r,
+                None => panic!("right expression is None!"),
             };
 
             if !test_integer_literal(&right, test_num) {

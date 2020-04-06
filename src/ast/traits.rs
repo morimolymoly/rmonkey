@@ -15,4 +15,11 @@ pub trait Statement {
 pub trait Expression {
     fn expresison_node(&self);
     fn as_any(&self) -> &dyn Any;
+    fn box_clone(&self) -> Box<Expression>;
+}
+
+impl Clone for Box<dyn Expression> {
+    fn clone(&self) -> Box<dyn Expression> {
+        self.box_clone()
+    }
 }

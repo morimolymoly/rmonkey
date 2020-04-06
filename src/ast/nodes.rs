@@ -104,6 +104,7 @@ impl Node for ExpressionStatement {
     }
 }
 
+#[derive(Clone)]
 pub struct PrefixExpression {
     pub token: token::Token,
     pub operator: token::Token,
@@ -124,9 +125,7 @@ impl Node for PrefixExpression {
     fn token_literal(&self) -> String {
         let operator_string = match self.operator {
             token::Token::Bang => String::from("!"),
-            token::Token::Minus => String::from("+"),
-            token::Token::Asterisk => String::from("*"),
-            token::Token::Plus => String::from("+"),
+            token::Token::Minus => String::from("-"),
             _ => String::from(""),
         };
         return operator_string;
@@ -138,8 +137,50 @@ impl Expression for PrefixExpression {
     fn as_any(&self) -> &dyn Any {
         self
     }
+    fn box_clone(&self) -> Box<dyn Expression> {
+        Box::new((*self).clone())
+    }
 }
 
+#[derive(Clone)]
+pub struct InfixExpression {
+    pub token: token::Token,
+    pub operator: token::Token,
+    pub left: Option<Box<dyn Expression>>,
+    pub right: Option<Box<dyn Expression>>,
+}
+
+impl InfixExpression {
+    pub fn new() -> InfixExpression {
+        InfixExpression {
+            token: token::Token::Illegal,
+            operator: token::Token::Illegal,
+            left: None,
+            right: None,
+        }
+    }
+}
+
+impl Node for InfixExpression {
+    fn token_literal(&self) -> String {
+        let operator_string = match self.operator {
+            _ => String::from(""),
+        };
+        return operator_string;
+    }
+}
+
+impl Expression for InfixExpression {
+    fn expresison_node(&self) {}
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+    fn box_clone(&self) -> Box<dyn Expression> {
+        Box::new((*self).clone())
+    }
+}
+
+#[derive(Clone)]
 pub struct IntegerLiteral {
     pub token: token::Token,
 }
@@ -166,8 +207,12 @@ impl Expression for IntegerLiteral {
     fn as_any(&self) -> &dyn Any {
         self
     }
+    fn box_clone(&self) -> Box<dyn Expression> {
+        Box::new((*self).clone())
+    }
 }
 
+#[derive(Clone)]
 pub struct Identifier {
     pub token: token::Token,
 }
@@ -196,5 +241,8 @@ impl Expression for Identifier {
     fn expresison_node(&self) {}
     fn as_any(&self) -> &dyn Any {
         self
+    }
+    fn box_clone(&self) -> Box<dyn Expression> {
+        Box::new((*self).clone())
     }
 }
