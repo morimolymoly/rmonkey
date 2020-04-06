@@ -30,7 +30,7 @@ pub struct Parser {
 }
 
 impl Parser {
-    fn new(l: lexer::Lexer) -> Parser {
+    pub fn new(l: lexer::Lexer) -> Parser {
         let mut p = Parser {
             l,
             cur_token: token::Token::Illegal,
@@ -119,7 +119,7 @@ impl Parser {
 
         Some(stmt)
     }
-    fn parse_expression(&mut self, p: Priority) -> Option<Box<dyn ast::traits::Expression>> {
+    fn parse_expression(&mut self, p: Priority) -> Option<Box<dyn ast::traits::Exp>> {
         let mut leftexp = self.prefix_parse().unwrap();
 
         while !self.peek_token_is(token::Token::Semicolon) && p < self.peek_priority() {
@@ -129,7 +129,7 @@ impl Parser {
         Some(leftexp)
     }
 
-    fn prefix_parse(&mut self) -> Option<Box<dyn ast::traits::Expression>> {
+    fn prefix_parse(&mut self) -> Option<Box<dyn ast::traits::Exp>> {
         match &self.cur_token {
             token::Token::Ident(_) => {
                 let mut tok = ast::nodes::Identifier::new();
@@ -152,7 +152,7 @@ impl Parser {
         }
     }
 
-    fn prefix_parse_ops(&mut self) -> Option<Box<dyn ast::traits::Expression>> {
+    fn prefix_parse_ops(&mut self) -> Option<Box<dyn ast::traits::Exp>> {
         let mut tok = ast::nodes::PrefixExpression::new();
         tok.token = self.cur_token.clone();
         tok.operator = self.cur_token.clone();
@@ -238,8 +238,8 @@ impl Parser {
 
     fn parse_infix_expression(
         &mut self,
-        left: Box<dyn ast::traits::Expression>,
-    ) -> Box<dyn ast::traits::Expression> {
+        left: Box<dyn ast::traits::Exp>,
+    ) -> Box<dyn ast::traits::Exp> {
         let mut exp = ast::nodes::InfixExpression::new();
         exp.token = self.cur_token.clone();
         exp.operator = self.cur_token.clone();
@@ -603,7 +603,13 @@ mod tests {
                 None => panic!("stmt is not a ast::nodes::ExpressionStatement!"),
             };
 
-            let expression = match stmt.expression.as_ref().unwrap().as_any().downcast_ref::<ast::nodes::Boolean>() {
+            let expression = match stmt
+                .expression
+                .as_ref()
+                .unwrap()
+                .as_any()
+                .downcast_ref::<ast::nodes::Boolean>()
+            {
                 Some(s) => s,
                 None => panic!("expression is None!"),
             };
@@ -630,7 +636,7 @@ mod tests {
         }
     }
 
-    fn test_literal_expression(exp: &Box<dyn ast::traits::Expression>, expected: &Any) -> bool {
+    fn test_literal_expression(exp: &Box<dyn ast::traits::Exp>, expected: &Any) -> bool {
         if let Some(v) = expected.downcast_ref::<String>() {
             return test_identifier(exp, v.clone());
         } else if let Some(v) = expected.downcast_ref::<u32>() {
@@ -682,7 +688,7 @@ mod tests {
         true
     }
 
-    fn test_identifier(exp: &Box<dyn ast::traits::Expression>, value: String) -> bool {
+    fn test_identifier(exp: &Box<dyn ast::traits::Exp>, value: String) -> bool {
         let ident = match exp.as_any().downcast_ref::<ast::nodes::Identifier>() {
             Some(s) => s,
             None => {
@@ -699,7 +705,7 @@ mod tests {
         true
     }
 
-    fn test_integer_literal(il: &Box<dyn ast::traits::Expression>, value: u32) -> bool {
+    fn test_integer_literal(il: &Box<dyn ast::traits::Exp>, value: u32) -> bool {
         let integer = match il.as_any().downcast_ref::<ast::nodes::IntegerLiteral>() {
             Some(s) => s,
             None => {

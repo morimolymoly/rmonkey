@@ -16,4 +16,20 @@ impl Program {
     }
 }
 
-impl Node for Program {}
+impl Node for Program {
+    fn token_literal(&self) -> String {
+        if self.statements.len() > 0 {
+            self.statements[0].String()
+        } else {
+            String::from("")
+        }
+    }
+
+    fn String(&self) -> String {
+        let mut string = String::from("");
+        for s in self.statements.iter() {
+            string.push_str(&format!("{}\n", s.String()))
+        }
+        string
+    }
+}
