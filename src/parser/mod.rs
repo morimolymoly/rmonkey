@@ -319,11 +319,8 @@ mod tests {
                 Some(laststatement) => laststatement,
                 None => panic!("stmt is not a ast::nodes::ReturnStatement!"),
             };
-            if let_s.token_literal() != "return" {
-                panic!(
-                    "let_s.token_literal not return. got {}",
-                    let_s.token_literal()
-                );
+            if let_s.token != token::Token::Return {
+                panic!("let_s.token not return. got {:?}", let_s.token);
             }
         }
     }
@@ -360,16 +357,7 @@ mod tests {
             Some(s) => s,
             None => panic!("expression is None!"),
         };
-
-        let ident = match expression.as_any().downcast_ref::<ast::nodes::Identifier>() {
-            Some(s) => s,
-            None => panic!("expression is not Identifier"),
-        };
-
-        if ident.token != token::Token::Ident(String::from("foobar")) {
-            panic!("ident is not a Ident(foobar), got:{:?}", ident.token);
-        }
-        println!("got token{:?}", ident.token);
+        test_identifier(expression, String::from("foobar"));
     }
 
     #[test]
@@ -492,9 +480,9 @@ mod tests {
 
     struct infixTest {
         input: String,
-        left: token::Token,
-        operator: token::Token,
-        right: token::Token,
+        left: u32,
+        operator: String,
+        right: u32,
     }
 
     #[test]
@@ -502,51 +490,51 @@ mod tests {
         let mut infix_tests = vec![
             infixTest {
                 input: String::from("5 + 5;"),
-                left: token::Token::Int(5),
-                operator: token::Token::Plus,
-                right: token::Token::Int(5),
+                left: 5,
+                operator: String::from("+"),
+                right: 5,
             },
             infixTest {
                 input: String::from("5 - 5;"),
-                left: token::Token::Int(5),
-                operator: token::Token::Minus,
-                right: token::Token::Int(5),
+                left: 5,
+                operator: String::from("-"),
+                right: 5,
             },
             infixTest {
                 input: String::from("5 * 5;"),
-                left: token::Token::Int(5),
-                operator: token::Token::Asterisk,
-                right: token::Token::Int(5),
+                left: 5,
+                operator: String::from("*"),
+                right: 5,
             },
             infixTest {
                 input: String::from("5 / 5;"),
-                left: token::Token::Int(5),
-                operator: token::Token::Slash,
-                right: token::Token::Int(5),
+                left: 5,
+                operator: String::from("/"),
+                right: 5,
             },
             infixTest {
                 input: String::from("5 > 5;"),
-                left: token::Token::Int(5),
-                operator: token::Token::GT,
-                right: token::Token::Int(5),
+                left: 5,
+                operator: String::from(">"),
+                right: 5,
             },
             infixTest {
                 input: String::from("5 < 5;"),
-                left: token::Token::Int(5),
-                operator: token::Token::LT,
-                right: token::Token::Int(5),
+                left: 5,
+                operator: String::from("<"),
+                right: 5,
             },
             infixTest {
                 input: String::from("5 == 5;"),
-                left: token::Token::Int(5),
-                operator: token::Token::Equal,
-                right: token::Token::Int(5),
+                left: 5,
+                operator: String::from("=="),
+                right: 5,
             },
             infixTest {
                 input: String::from("5 != 5;"),
-                left: token::Token::Int(5),
-                operator: token::Token::NotEqual,
-                right: token::Token::Int(5),
+                left: 5,
+                operator: String::from("!="),
+                right: 5,
             },
         ];
 
@@ -569,86 +557,99 @@ mod tests {
                 );
             }
 
-            let stmt = match program.statements[0]
-                .as_any()
-                .downcast_ref::<ast::nodes::ExpressionStatement>()
-            {
-                Some(laststatement) => laststatement,
-                None => panic!("stmt is not a ast::nodes::ExpressionStatement!"),
-            };
-
-            let exp = match stmt
-                .expression
-                .as_ref()
-                .unwrap()
-                .as_any()
-                .downcast_ref::<ast::nodes::InfixExpression>()
-            {
-                Some(pe) => pe,
-                None => panic!("stmt is not a ast::nodes::InfixExpression!"),
-            };
-
-            if exp.operator != test.operator {
-                panic!(
-                    "exp.operator is not {:?}, got={:?}",
-                    test.operator, exp.operator
-                );
-            }
-
-            let test_num = match test.left {
-                token::Token::Int(d) => d,
-                _ => 0,
-            };
-
-            let left = match &exp.left {
-                Some(r) => r,
-                None => panic!("left expression is None!"),
-            };
-
-            if !test_integer_literal(&left, test_num) {
-                return;
-            }
-
-            let test_num = match test.right {
-                token::Token::Int(d) => d,
-                _ => 0,
-            };
-
-            let right = match &exp.right {
-                Some(r) => r,
-                None => panic!("right expression is None!"),
-            };
-
-            if !test_integer_literal(&right, test_num) {
-                return;
-            }
+            let stmt = &program.statements[0];
+            test_infix_expression(stmt, &test.left, test.operator.clone(), &test.right);
         }
     }
 
     fn test_let_statement(s: &Box<dyn ast::traits::Prog>, name: String) {
-        if s.token_literal() != String::from("let") {
-            panic!("s.tolen_literal not 'let', got={}", s.token_literal());
-        }
         let let_s = match s.as_any().downcast_ref::<ast::nodes::LetStatement>() {
             Some(letstatement) => letstatement,
             None => panic!("s is not a ast::nodes::LetStatement!"),
         };
 
-        if let_s.name.token_literal() != name {
+        if let_s.name.token != token::Token::Ident(name.clone()) {
             panic!(
-                "let_s.name.token is not token::Token::Ident({}), got=token::Token::Ident({})",
-                name,
-                let_s.name.token_literal()
+                "let_s.name.token is not token::Token::Ident({}), got={:?})",
+                name, let_s.name.token
             );
         }
-        println!("{} {}", let_s.token_literal(), let_s.name.token_literal());
+    }
+
+    fn test_literal_expression(exp: &Box<dyn ast::traits::Expression>, expected: &Any) -> bool {
+        if let Some(v) = expected.downcast_ref::<String>() {
+            return test_identifier(exp, v.clone());
+        } else if let Some(v) = expected.downcast_ref::<u32>() {
+            return test_integer_literal(exp, *v);
+        }
+        false
+    }
+
+    fn test_infix_expression(
+        exp: &Box<dyn ast::traits::Prog>,
+        left: &Any,
+        operator: String,
+        right: &Any,
+    ) -> bool {
+        let stmt = match exp
+            .as_any()
+            .downcast_ref::<ast::nodes::ExpressionStatement>()
+        {
+            Some(laststatement) => laststatement,
+            None => {
+                println!("stmt is not a ast::nodes::ExpressionStatement!");
+                return false;
+            }
+        };
+        let exp = match stmt
+            .expression
+            .as_ref()
+            .unwrap()
+            .as_any()
+            .downcast_ref::<ast::nodes::InfixExpression>()
+        {
+            Some(pe) => pe,
+            None => {
+                println!("stmt is not a ast::nodes::InfixExpression!");
+                return false;
+            }
+        };
+        if !test_literal_expression(exp.left.as_ref().unwrap(), left) {
+            return false;
+        }
+        if exp.operator != token::token_from_literal(operator.clone()) {
+            println!("exp.operator is not {}, got={:?}", operator, exp.operator);
+            return false;
+        }
+        if !test_literal_expression(exp.right.as_ref().unwrap(), right) {
+            return false;
+        }
+
+        true
+    }
+
+    fn test_identifier(exp: &Box<dyn ast::traits::Expression>, value: String) -> bool {
+        let ident = match exp.as_any().downcast_ref::<ast::nodes::Identifier>() {
+            Some(s) => s,
+            None => {
+                println!("expression is not Identifier");
+                return false;
+            }
+        };
+
+        if ident.token != token::Token::Ident(value.clone()) {
+            println!("ident is not {}, got {:?}", value, ident.token);
+            return false;
+        }
+
+        true
     }
 
     fn test_integer_literal(il: &Box<dyn ast::traits::Expression>, value: u32) -> bool {
         let integer = match il.as_any().downcast_ref::<ast::nodes::IntegerLiteral>() {
             Some(s) => s,
             None => {
-                println!("expression is not Identifier");
+                println!("expression is not IntegerLiteral");
                 return false;
             }
         };

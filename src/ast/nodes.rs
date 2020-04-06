@@ -30,11 +30,7 @@ impl LetStatement {
 
 impl Prog for LetStatement {}
 
-impl Node for LetStatement {
-    fn token_literal(&self) -> String {
-        String::from("let")
-    }
-}
+impl Node for LetStatement {}
 
 impl Statement for LetStatement {
     fn statement_node(&self) {}
@@ -68,11 +64,7 @@ impl Statement for ReturnStatement {
     }
 }
 
-impl Node for ReturnStatement {
-    fn token_literal(&self) -> String {
-        String::from("return")
-    }
-}
+impl Node for ReturnStatement {}
 
 pub struct ExpressionStatement {
     pub token: token::Token,
@@ -98,11 +90,7 @@ impl Statement for ExpressionStatement {
     }
 }
 
-impl Node for ExpressionStatement {
-    fn token_literal(&self) -> String {
-        String::from("")
-    }
-}
+impl Node for ExpressionStatement {}
 
 #[derive(Clone)]
 pub struct PrefixExpression {
@@ -121,16 +109,7 @@ impl PrefixExpression {
     }
 }
 
-impl Node for PrefixExpression {
-    fn token_literal(&self) -> String {
-        let operator_string = match self.operator {
-            token::Token::Bang => String::from("!"),
-            token::Token::Minus => String::from("-"),
-            _ => String::from(""),
-        };
-        return operator_string;
-    }
-}
+impl Node for PrefixExpression {}
 
 impl Expression for PrefixExpression {
     fn expresison_node(&self) {}
@@ -161,14 +140,7 @@ impl InfixExpression {
     }
 }
 
-impl Node for InfixExpression {
-    fn token_literal(&self) -> String {
-        let operator_string = match self.operator {
-            _ => String::from(""),
-        };
-        return operator_string;
-    }
-}
+impl Node for InfixExpression {}
 
 impl Expression for InfixExpression {
     fn expresison_node(&self) {}
@@ -193,14 +165,7 @@ impl IntegerLiteral {
     }
 }
 
-impl Node for IntegerLiteral {
-    fn token_literal(&self) -> String {
-        if let token::Token::Int(i) = self.token {
-            return i.to_string();
-        }
-        String::from("")
-    }
-}
+impl Node for IntegerLiteral {}
 
 impl Expression for IntegerLiteral {
     fn expresison_node(&self) {}
@@ -228,14 +193,7 @@ impl Identifier {
     }
 }
 
-impl Node for Identifier {
-    fn token_literal(&self) -> String {
-        match &self.token {
-            token::Token::Ident(s) => s.clone(),
-            _ => String::new(),
-        }
-    }
-}
+impl Node for Identifier {}
 
 impl Expression for Identifier {
     fn expresison_node(&self) {}

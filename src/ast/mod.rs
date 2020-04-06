@@ -16,12 +16,4 @@ impl Program {
     }
 }
 
-impl Node for Program {
-    fn token_literal(&self) -> String {
-        if self.statements.len() > 0 {
-            self.statements[0].token_literal()
-        } else {
-            String::new()
-        }
-    }
-}
+impl Node for Program {}
