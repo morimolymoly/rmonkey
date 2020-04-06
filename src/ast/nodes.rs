@@ -104,6 +104,42 @@ impl Node for ExpressionStatement {
     }
 }
 
+pub struct PrefixExpression {
+    pub token: token::Token,
+    pub operator: token::Token,
+    pub right: Option<Box<dyn Expression>>,
+}
+
+impl PrefixExpression {
+    pub fn new() -> PrefixExpression {
+        PrefixExpression {
+            token: token::Token::Illegal,
+            operator: token::Token::Illegal,
+            right: None,
+        }
+    }
+}
+
+impl Node for PrefixExpression {
+    fn token_literal(&self) -> String {
+        let operator_string = match self.operator {
+            token::Token::Bang => String::from("!"),
+            token::Token::Minus => String::from("+"),
+            token::Token::Asterisk => String::from("*"),
+            token::Token::Plus => String::from("+"),
+            _ => String::from(""),
+        };
+        return operator_string;
+    }
+}
+
+impl Expression for PrefixExpression {
+    fn expresison_node(&self) {}
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+}
+
 pub struct IntegerLiteral {
     pub token: token::Token,
 }

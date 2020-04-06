@@ -118,7 +118,8 @@ impl Parser {
         Some(stmt)
     }
     fn parse_expression(&mut self, p: Priority) -> Option<Box<dyn ast::traits::Expression>> {
-        self.prefix_parse()
+        let ret = self.prefix_parse();
+        ret
     }
 
     fn prefix_parse(&mut self) -> Option<Box<dyn ast::traits::Expression>> {
@@ -133,8 +134,19 @@ impl Parser {
                 tok.token = self.cur_token.clone();
                 Some(Box::new(tok))
             }
+            token::Token::Bang => self.prefix_parse_ops(),
+            token::Token::Minus => self.prefix_parse_ops(),
             _ => None,
         }
+    }
+
+    fn prefix_parse_ops(&mut self) -> Option<Box<dyn ast::traits::Expression>> {
+        let mut tok = ast::nodes::PrefixExpression::new();
+        tok.token = self.cur_token.clone();
+        tok.operator = self.cur_token.clone();
+        self.next_token();
+        tok.right = self.parse_expression(Priority::PREFIX);
+        Some(Box::new(tok))
     }
 
     fn cur_token_is(&self, token: token::Token) -> bool {
@@ -229,25 +241,6 @@ mod tests {
         }
     }
 
-    fn test_let_statement(s: &Box<dyn ast::traits::Prog>, name: String) {
-        if s.token_literal() != String::from("let") {
-            panic!("s.tolen_literal not 'let', got={}", s.token_literal());
-        }
-        let let_s = match s.as_any().downcast_ref::<ast::nodes::LetStatement>() {
-            Some(letstatement) => letstatement,
-            None => panic!("s is not a ast::nodes::LetStatement!"),
-        };
-
-        if let_s.name.token_literal() != name {
-            panic!(
-                "let_s.name.token is not token::Token::Ident({}), got=token::Token::Ident({})",
-                name,
-                let_s.name.token_literal()
-            );
-        }
-        println!("{} {}", let_s.token_literal(), let_s.name.token_literal());
-    }
-
     #[test]
     fn test_return_statements() {
         let input = String::from(
@@ -286,18 +279,6 @@ mod tests {
                     let_s.token_literal()
                 );
             }
-        }
-    }
-
-    fn check_parser_errors(p: &Parser) {
-        let errs = p.get_errors();
-        if errs.len() == 0 {
-            return;
-        }
-
-        println!("parser has {} errors", errs.len());
-        for msg in errs.iter() {
-            println!("{}", msg);
         }
     }
 
@@ -365,6 +346,7 @@ mod tests {
                 program.statements.len()
             );
         }
+
         let stmt = match program.statements[0]
             .as_any()
             .downcast_ref::<ast::nodes::ExpressionStatement>()
@@ -377,18 +359,136 @@ mod tests {
             Some(s) => s,
             None => panic!("expression is None!"),
         };
+        test_integer_literal(expression, 5);
+    }
 
-        let integer = match expression
-            .as_any()
-            .downcast_ref::<ast::nodes::IntegerLiteral>()
-        {
-            Some(s) => s,
-            None => panic!("expression is not Identifier"),
+    struct prefixTest {
+        input: String,
+        operator: token::Token,
+        integer: token::Token,
+    }
+
+    #[test]
+    fn test_parsing_prefix_expressions() {
+        let mut prefix_tests = vec![
+            prefixTest {
+                input: String::from("!5;"),
+                operator: token::Token::Bang,
+                integer: token::Token::Int(5),
+            },
+            prefixTest {
+                input: String::from("-15;"),
+                operator: token::Token::Minus,
+                integer: token::Token::Int(15),
+            },
+        ];
+
+        for test in prefix_tests.iter() {
+            let mut l = lexer::Lexer::new(test.input.clone());
+            let mut p = Parser::new(l);
+
+            let program = p.parse_program();
+            check_parser_errors(&p);
+            if let None = program {
+                panic!("parse_program returned None");
+            }
+
+            let program = program.unwrap();
+
+            if program.statements.len() != 1 {
+                panic!(
+                    "program.statements does not contain 1 statements, got={}",
+                    program.statements.len()
+                );
+            }
+
+            let stmt = match program.statements[0]
+                .as_any()
+                .downcast_ref::<ast::nodes::ExpressionStatement>()
+            {
+                Some(laststatement) => laststatement,
+                None => panic!("stmt is not a ast::nodes::ExpressionStatement!"),
+            };
+
+            let exp = match stmt
+                .expression
+                .as_ref()
+                .unwrap()
+                .as_any()
+                .downcast_ref::<ast::nodes::PrefixExpression>()
+            {
+                Some(pe) => pe,
+                None => panic!("stmt is not a ast::nodes::PrefixExpression!"),
+            };
+
+            if exp.operator != test.operator {
+                panic!(
+                    "exp.operator is not {:?}, got={:?}",
+                    test.operator, exp.operator
+                );
+            }
+
+            let test_num = match test.integer {
+                token::Token::Int(d) => d,
+                _ => 0,
+            };
+
+            let right = match &exp.right {
+                Some(r) => r,
+                None => panic!(""),
+            };
+
+            if !test_integer_literal(&right, test_num) {
+                return;
+            }
+        }
+    }
+
+    fn test_let_statement(s: &Box<dyn ast::traits::Prog>, name: String) {
+        if s.token_literal() != String::from("let") {
+            panic!("s.tolen_literal not 'let', got={}", s.token_literal());
+        }
+        let let_s = match s.as_any().downcast_ref::<ast::nodes::LetStatement>() {
+            Some(letstatement) => letstatement,
+            None => panic!("s is not a ast::nodes::LetStatement!"),
         };
 
-        if integer.token != token::Token::Int(5) {
-            panic!("ident is not a Ident(foobar), got:{:?}", integer.token);
+        if let_s.name.token_literal() != name {
+            panic!(
+                "let_s.name.token is not token::Token::Ident({}), got=token::Token::Ident({})",
+                name,
+                let_s.name.token_literal()
+            );
+        }
+        println!("{} {}", let_s.token_literal(), let_s.name.token_literal());
+    }
+
+    fn test_integer_literal(il: &Box<dyn ast::traits::Expression>, value: u32) -> bool {
+        let integer = match il.as_any().downcast_ref::<ast::nodes::IntegerLiteral>() {
+            Some(s) => s,
+            None => {
+                println!("expression is not Identifier");
+                return false;
+            }
+        };
+
+        if integer.token != token::Token::Int(value) {
+            println!("ident is not a Ident(foobar), got:{:?}", integer.token);
+            return false;
         }
         println!("got token{:?}", integer.token);
+        return true;
+    }
+
+    fn check_parser_errors(p: &Parser) {
+        let errs = p.get_errors();
+        if errs.len() == 0 {
+            return;
+        }
+
+        println!("parser has {} errors", errs.len());
+        for msg in errs.iter() {
+            println!("{}", msg);
+        }
     }
 }
