@@ -40,7 +40,11 @@ impl Node for LetStatement {
         String::from("let")
     }
     fn string(&self) -> String {
-        format!("let {} = {};", self.name.string(), "")
+        let value_string = match &self.expression {
+            Some(s) => s.string(),
+            None => String::from(""),
+        };
+        format!("let {} = {};", self.name.string(), value_string)
     }
 }
 
@@ -86,7 +90,11 @@ impl Node for ReturnStatement {
         String::from("return")
     }
     fn string(&self) -> String {
-        format!("return {}", "")
+        let value_string = match &self.return_value {
+            Some(s) => s.string(),
+            None => String::from(""),
+        };
+        format!("return {}", value_string)
     }
 }
 
