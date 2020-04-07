@@ -30,7 +30,7 @@ pub struct Parser {
 }
 
 impl Parser {
-    fn new(l: lexer::Lexer) -> Parser {
+    pub fn new(l: lexer::Lexer) -> Parser {
         let mut p = Parser {
             l,
             cur_token: token::Token::Illegal,
@@ -89,7 +89,11 @@ impl Parser {
             return None;
         }
 
-        while !self.cur_token_is(token::Token::Semicolon) {
+        self.next_token();
+
+        stmt.expression = self.parse_expression(Priority::LOWEST);
+
+        if self.peek_token_is(token::Token::Semicolon) {
             self.next_token();
         }
 
@@ -102,7 +106,9 @@ impl Parser {
 
         self.next_token();
 
-        while !self.cur_token_is(token::Token::Semicolon) {
+        stmt.return_value = self.parse_expression(Priority::LOWEST);
+
+        if self.peek_token_is(token::Token::Semicolon) {
             self.next_token();
         }
 
@@ -119,18 +125,16 @@ impl Parser {
 
         Some(stmt)
     }
-    fn parse_expression(&mut self, p: Priority) -> Option<Box<dyn ast::traits::Expression>> {
+    fn parse_expression(&mut self, p: Priority) -> Option<Box<dyn ast::traits::Exp>> {
         let mut leftexp = self.prefix_parse().unwrap();
-
         while !self.peek_token_is(token::Token::Semicolon) && p < self.peek_priority() {
             self.next_token();
             leftexp = self.parse_infix_expression(leftexp.clone());
-            println!("papa{:?}", self.cur_token);
         }
         Some(leftexp)
     }
 
-    fn prefix_parse(&mut self) -> Option<Box<dyn ast::traits::Expression>> {
+    fn prefix_parse(&mut self) -> Option<Box<dyn ast::traits::Exp>> {
         match &self.cur_token {
             token::Token::Ident(_) => {
                 let mut tok = ast::nodes::Identifier::new();
@@ -144,11 +148,121 @@ impl Parser {
             }
             token::Token::Bang => self.prefix_parse_ops(),
             token::Token::Minus => self.prefix_parse_ops(),
+            token::Token::Boolean(_) => {
+                let mut tok = ast::nodes::Boolean::new();
+                tok.token = self.cur_token.clone();
+                Some(Box::new(tok))
+            }
+            token::Token::LParen => {
+                self.next_token();
+                let exp = self.parse_expression(Priority::LOWEST);
+                if !self.expect_peek(token::Token::RParen) {
+                    return None;
+                }
+                exp
+            }
+            token::Token::If => {
+                let mut tok = ast::nodes::IfExpression::new();
+                tok.token = self.cur_token.clone();
+
+                if !self.expect_peek(token::Token::LParen) {
+                    return None;
+                }
+
+                self.next_token();
+                tok.condition = self.parse_expression(Priority::LOWEST);
+
+                if !self.expect_peek(token::Token::RParen) {
+                    return None;
+                }
+
+                if !self.expect_peek(token::Token::LBrace) {
+                    return None;
+                }
+
+                tok.consequence = self.parse_block_statement();
+
+                if self.peek_token_is(token::Token::Else) {
+                    self.next_token();
+
+                    if !self.expect_peek(token::Token::LBrace) {
+                        return None;
+                    }
+
+                    tok.alternative = self.parse_block_statement();
+                }
+
+                Some(Box::new(tok))
+            }
+            token::Token::Function => {
+                let mut tok = ast::nodes::FunctionLiteral::new();
+                tok.token = self.cur_token.clone();
+
+                if !self.expect_peek(token::Token::LParen) {
+                    return None;
+                }
+
+                tok.parameters = self.parse_function_parameters();
+
+                if !self.expect_peek(token::Token::LBrace) {
+                    return None;
+                }
+
+                tok.body = self.parse_block_statement();
+
+                Some(Box::new(tok))
+            }
             _ => None,
         }
     }
 
-    fn prefix_parse_ops(&mut self) -> Option<Box<dyn ast::traits::Expression>> {
+    fn parse_function_parameters(&mut self) -> Vec<Box<dyn ast::traits::Exp>> {
+        let mut ret: Vec<Box<dyn ast::traits::Exp>> = Vec::new();
+
+        if self.peek_token_is(token::Token::RParen) {
+            self.next_token();
+            return ret;
+        }
+        self.next_token();
+
+        let mut ident = ast::nodes::Identifier::new();
+        ident.token = self.cur_token.clone();
+
+        ret.push(Box::new(ident));
+
+        while self.peek_token_is(token::Token::Comma) {
+            self.next_token();
+            self.next_token();
+
+            let mut ident = ast::nodes::Identifier::new();
+            ident.token = self.cur_token.clone();
+            ret.push(Box::new(ident));
+        }
+
+        if self.expect_peek(token::Token::RParen) {
+            return ret;
+        }
+
+        ret
+    }
+
+    fn parse_block_statement(&mut self) -> Option<ast::nodes::BlockStatement> {
+        let mut block = ast::nodes::BlockStatement::new();
+
+        self.next_token();
+
+        while !self.cur_token_is(token::Token::RBrace) && !self.cur_token_is(token::Token::EOF) {
+            let mut stmt = self.parse_statement();
+            if let Some(s) = stmt {
+                block.statements.push(s.clone());
+            }
+            self.next_token();
+        }
+
+        Some(block)
+    }
+
+    fn prefix_parse_ops(&mut self) -> Option<Box<dyn ast::traits::Exp>> {
         let mut tok = ast::nodes::PrefixExpression::new();
         tok.token = self.cur_token.clone();
         tok.operator = self.cur_token.clone();
@@ -228,24 +342,67 @@ impl Parser {
             token::Token::Minus => Priority::SUM,
             token::Token::Slash => Priority::PRODUCT,
             token::Token::Asterisk => Priority::PRODUCT,
+            token::Token::LParen => Priority::CALL,
             _ => Priority::LOWEST,
         }
     }
 
     fn parse_infix_expression(
         &mut self,
-        left: Box<dyn ast::traits::Expression>,
-    ) -> Box<dyn ast::traits::Expression> {
-        let mut exp = ast::nodes::InfixExpression::new();
-        exp.token = self.cur_token.clone();
-        exp.operator = self.cur_token.clone();
-        exp.left = Some(left);
+        left: Box<dyn ast::traits::Exp>,
+    ) -> Box<dyn ast::traits::Exp> {
+        match self.cur_token {
+            token::Token::LParen => {
+                let mut exp = ast::nodes::CallExpression::new();
+                exp.function = Some(left);
+                exp.token = self.cur_token.clone();
+                exp.arguments = self.parse_call_arguments();
+                Box::new(exp)
+            }
+            _ => {
+                let mut exp = ast::nodes::InfixExpression::new();
+                exp.token = self.cur_token.clone();
+                exp.operator = self.cur_token.clone();
+                exp.left = Some(left);
 
-        let priority = self.cur_priority();
+                let priority = self.cur_priority();
+                self.next_token();
+                exp.right = self.parse_expression(priority);
+
+                Box::new(exp)
+            }
+        }
+    }
+
+    fn parse_call_arguments(&mut self) -> Vec<Box<dyn Exp>> {
+        let mut args: Vec<Box<dyn Exp>> = Vec::new();
+
+        if self.peek_token_is(token::Token::RParen) {
+            self.next_token();
+            return args;
+        }
+
         self.next_token();
-        exp.right = self.parse_expression(priority);
 
-        Box::new(exp)
+        match self.parse_expression(Priority::LOWEST) {
+            Some(s) => args.push(s),
+            None => {}
+        };
+
+        while self.peek_token_is(token::Token::Comma) {
+            self.next_token();
+            self.next_token();
+            match self.parse_expression(Priority::LOWEST) {
+                Some(s) => args.push(s),
+                None => {}
+            };
+        }
+
+        if !self.expect_peek(token::Token::RParen) {
+            return args;
+        }
+
+        args
     }
 }
 
@@ -254,76 +411,111 @@ mod tests {
     use super::*;
     #[test]
     fn test_let_statements() {
-        let input = String::from(
-            "
-        let x = 5;
-        let y = 10;
-        let foobar = 114514;
-        ",
-        );
-        let mut l = lexer::Lexer::new(input);
-        let mut p = Parser::new(l);
-
-        let program = p.parse_program();
-        check_parser_errors(&p);
-        if let None = program {
-            panic!("parse_program returned None");
+        struct test {
+            input: String,
+            expected_identifier: String,
+            expected_value: Box<dyn Any>,
         }
 
-        let program = program.unwrap();
+        let mut tests = vec![
+            test {
+                input: String::from("let x = 5;"),
+                expected_identifier: String::from("x"),
+                expected_value: Box::new(5),
+            },
+            test {
+                input: String::from("let y = true;"),
+                expected_identifier: String::from("y"),
+                expected_value: Box::new(true),
+            },
+            test {
+                input: String::from("let foobar = y;"),
+                expected_identifier: String::from("foobar"),
+                expected_value: Box::new(String::from("y")),
+            },
+        ];
 
-        if program.statements.len() != 3 {
-            panic!(
-                "program.statements does not contain 3 statements, got={}",
-                program.statements.len()
-            );
-        }
+        for test in tests.iter() {
+            let mut l = lexer::Lexer::new(test.input.clone());
+            let mut p = Parser::new(l);
 
-        let expected_identifier_name = vec!["x", "y", "foobar"];
+            let program = p.parse_program();
+            check_parser_errors(&p);
+            if let None = program {
+                panic!("parse_program returned None");
+            }
 
-        for (i, tt) in expected_identifier_name.iter().enumerate() {
-            let stmt = &program.statements[i];
-            test_let_statement(stmt, tt.to_string());
+            let program = program.unwrap();
+
+            if program.statements.len() != 1 {
+                panic!(
+                    "program.statements does not contain 1 statements, got={}",
+                    program.statements.len()
+                );
+            }
+            let stmt = &program.statements[0];
+            if !test_let_statement(stmt, test.expected_identifier.clone()) {
+                return;
+            }
+
+            let exp = match stmt.as_any().downcast_ref::<ast::nodes::LetStatement>() {
+                Some(s) => s,
+                None => panic!("stmt is not a ast::nodes::LetStatement"),
+            };
+
+            if !test_literal_expression(&exp.expression.as_ref().unwrap(), &test.expected_value) {
+                return;
+            }
         }
     }
 
-    #[test]
     fn test_return_statements() {
-        let input = String::from(
-            "
-        return 5;
-        return 10;
-        return 114514;
-        ",
-        );
-        let mut l = lexer::Lexer::new(input);
-        let mut p = Parser::new(l);
-
-        let program = p.parse_program();
-        check_parser_errors(&p);
-        if let None = program {
-            panic!("parse_program returned None");
+        struct test {
+            input: String,
+            expected_value: Box<dyn Any>,
         }
 
-        let program = program.unwrap();
+        let mut tests = vec![
+            test {
+                input: String::from("return 5;"),
+                expected_value: Box::new(5),
+            },
+            test {
+                input: String::from("return 114514;"),
+                expected_value: Box::new(114514),
+            },
+            test {
+                input: String::from("return 20;"),
+                expected_value: Box::new(20),
+            },
+        ];
 
-        if program.statements.len() != 3 {
-            panic!(
-                "program.statements does not contain 3 statements, got={}",
-                program.statements.len()
-            );
-        }
+        for test in tests.iter() {
+            let mut l = lexer::Lexer::new(test.input.clone());
+            let mut p = Parser::new(l);
 
-        for stmt in program.statements {
-            let let_s = match stmt.as_any().downcast_ref::<ast::nodes::ReturnStatement>() {
-                Some(laststatement) => laststatement,
-                None => panic!("stmt is not a ast::nodes::ReturnStatement!"),
-            };
-            if let_s.token_literal() != "return" {
+            let program = p.parse_program();
+            check_parser_errors(&p);
+            if let None = program {
+                panic!("parse_program returned None");
+            }
+
+            let program = program.unwrap();
+
+            if program.statements.len() != 1 {
                 panic!(
-                    "let_s.token_literal not return. got {}",
-                    let_s.token_literal()
+                    "program.statements does not contain 1 statements, got={}",
+                    program.statements.len()
                 );
+            }
+            let stmt = &program.statements[0];
+            let exp = match stmt.as_any().downcast_ref::<ast::nodes::ReturnStatement>() {
+                Some(s) => s,
+                None => panic!("stmt is not a ast::nodes::ReturnStatement"),
+            };
+
+            if !test_literal_expression(&exp.return_value.as_ref().unwrap(), &test.expected_value) {
+                return;
             }
         }
     }
@@ -360,16 +552,7 @@ mod tests {
             Some(s) => s,
             None => panic!("expression is None!"),
         };
-
-        let ident = match expression.as_any().downcast_ref::<ast::nodes::Identifier>() {
-            Some(s) => s,
-            None => panic!("expression is not Identifier"),
-        };
-
-        if ident.token != token::Token::Ident(String::from("foobar")) {
-            panic!("ident is not a Ident(foobar), got:{:?}", ident.token);
-        }
-        println!("got token{:?}", ident.token);
+        test_identifier(expression, String::from("foobar"));
     }
 
     #[test]
@@ -408,24 +591,23 @@ mod tests {
         test_integer_literal(expression, 5);
     }
 
-    struct prefixTest {
-        input: String,
-        operator: token::Token,
-        integer: token::Token,
-    }
-
     #[test]
     fn test_parsing_prefix_expressions() {
+        struct prefixTest {
+            input: String,
+            operator: token::Token,
+            value: Box<dyn Any>,
+        }
         let mut prefix_tests = vec![
             prefixTest {
                 input: String::from("!5;"),
                 operator: token::Token::Bang,
-                integer: token::Token::Int(5),
+                value: Box::new(5),
             },
             prefixTest {
                 input: String::from("-15;"),
                 operator: token::Token::Minus,
-                integer: token::Token::Int(15),
+                value: Box::new(15),
             },
         ];
 
@@ -473,80 +655,84 @@ mod tests {
                     test.operator, exp.operator
                 );
             }
-
-            let test_num = match test.integer {
-                token::Token::Int(d) => d,
-                _ => 0,
-            };
-
-            let right = match &exp.right {
-                Some(r) => r,
-                None => panic!("right expression is None!"),
-            };
-
-            if !test_integer_literal(&right, test_num) {
-                return;
-            }
+            test_literal_expression(&exp.right.as_ref().unwrap(), &test.value);
         }
-    }
-
-    struct infixTest {
-        input: String,
-        left: token::Token,
-        operator: token::Token,
-        right: token::Token,
     }
 
     #[test]
     fn test_parsing_infix_expressions() {
+        struct infixTest {
+            input: String,
+            left: Box<dyn Any>,
+            operator: String,
+            right: Box<dyn Any>,
+        }
         let mut infix_tests = vec![
             infixTest {
                 input: String::from("5 + 5;"),
-                left: token::Token::Int(5),
-                operator: token::Token::Plus,
-                right: token::Token::Int(5),
+                left: Box::new(5),
+                operator: String::from("+"),
+                right: Box::new(5),
             },
             infixTest {
                 input: String::from("5 - 5;"),
-                left: token::Token::Int(5),
-                operator: token::Token::Minus,
-                right: token::Token::Int(5),
+                left: Box::new(5),
+                operator: String::from("-"),
+                right: Box::new(5),
             },
             infixTest {
                 input: String::from("5 * 5;"),
-                left: token::Token::Int(5),
-                operator: token::Token::Asterisk,
-                right: token::Token::Int(5),
+                left: Box::new(5),
+                operator: String::from("*"),
+                right: Box::new(5),
             },
             infixTest {
                 input: String::from("5 / 5;"),
-                left: token::Token::Int(5),
-                operator: token::Token::Slash,
-                right: token::Token::Int(5),
+                left: Box::new(5),
+                operator: String::from("/"),
+                right: Box::new(5),
             },
             infixTest {
                 input: String::from("5 > 5;"),
-                left: token::Token::Int(5),
-                operator: token::Token::GT,
-                right: token::Token::Int(5),
+                left: Box::new(5),
+                operator: String::from(">"),
+                right: Box::new(5),
             },
             infixTest {
                 input: String::from("5 < 5;"),
-                left: token::Token::Int(5),
-                operator: token::Token::LT,
-                right: token::Token::Int(5),
+                left: Box::new(5),
+                operator: String::from("<"),
+                right: Box::new(5),
             },
             infixTest {
                 input: String::from("5 == 5;"),
-                left: token::Token::Int(5),
-                operator: token::Token::Equal,
-                right: token::Token::Int(5),
+                left: Box::new(5),
+                operator: String::from("=="),
+                right: Box::new(5),
             },
             infixTest {
                 input: String::from("5 != 5;"),
-                left: token::Token::Int(5),
-                operator: token::Token::NotEqual,
-                right: token::Token::Int(5),
+                left: Box::new(5),
+                operator: String::from("!="),
+                right: Box::new(5),
+            },
+            infixTest {
+                input: String::from("true == true;"),
+                left: Box::new(true),
+                operator: String::from("=="),
+                right: Box::new(true),
+            },
+            infixTest {
+                input: String::from("true != false;"),
+                left: Box::new(true),
+                operator: String::from("!="),
+                right: Box::new(false),
+            },
+            infixTest {
+                input: String::from("false == false;"),
+                left: Box::new(false),
+                operator: String::from("=="),
+                right: Box::new(false),
             },
         ];
 
@@ -569,7 +755,41 @@ mod tests {
                 );
             }
 
-            let stmt = match program.statements[0]
+            let stmt = &program.statements[0];
+            test_infix_expression(stmt, &test.left, test.operator.clone(), &test.right);
+        }
+    }
+
+    #[test]
+    fn test_boolean_expression() {
+        let input = String::from(
+            "
+        true;
+        false;",
+        );
+
+        let expected_vec = vec![true, false];
+
+        let mut l = lexer::Lexer::new(input);
+        let mut p = Parser::new(l);
+
+        let program = p.parse_program();
+        check_parser_errors(&p);
+        if let None = program {
+            panic!("parse_program returned None");
+        }
+
+        let program = program.unwrap();
+
+        if program.statements.len() != 2 {
+            panic!(
+                "program.statements does not contain 2 statements, got={}",
+                program.statements.len()
+            );
+        }
+
+        for (i, boo) in expected_vec.iter().enumerate() {
+            let stmt = match program.statements[i]
                 .as_any()
                 .downcast_ref::<ast::nodes::ExpressionStatement>()
             {
@@ -577,75 +797,495 @@ mod tests {
                 None => panic!("stmt is not a ast::nodes::ExpressionStatement!"),
             };
 
-            let exp = match stmt
+            let expression = match stmt
                 .expression
                 .as_ref()
                 .unwrap()
                 .as_any()
-                .downcast_ref::<ast::nodes::InfixExpression>()
+                .downcast_ref::<ast::nodes::Boolean>()
             {
-                Some(pe) => pe,
-                None => panic!("stmt is not a ast::nodes::InfixExpression!"),
+                Some(s) => s,
+                None => panic!("expression is None!"),
             };
 
-            if exp.operator != test.operator {
+            if let token::Token::Boolean(b) = expression.token {
+                if b != *boo {
+                    panic!("expected bool is {} got: {}", expected_vec[i], b);
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn test_operator_precedence_parsing() {
+        struct testcase {
+            input: String,
+            expected: String,
+        }
+
+        let mut tests = vec![
+            testcase {
+                input: String::from("true;"),
+                expected: String::from("true"),
+            },
+            testcase {
+                input: String::from("false;"),
+                expected: String::from("false"),
+            },
+            testcase {
+                input: String::from("3>5 == false;"),
+                expected: String::from("((3 > 5) == false)"),
+            },
+            testcase {
+                input: String::from("1 + (2 + 3) + 4;"),
+                expected: String::from("((1 + (2 + 3)) + 4)"),
+            },
+            testcase {
+                input: String::from("(5 + 5) * 2;"),
+                expected: String::from("((5 + 5) * 2)"),
+            },
+            testcase {
+                input: String::from("2 / (5 + 5);"),
+                expected: String::from("(2 / (5 + 5))"),
+            },
+            testcase {
+                input: String::from("-(5 + 5);"),
+                expected: String::from("(-(5 + 5))"),
+            },
+            testcase {
+                input: String::from("!(true == true);"),
+                expected: String::from("(!(true == true))"),
+            },
+            testcase {
+                input: String::from("a + add(b * c) + d;"),
+                expected: String::from("((a + add((b * c))) + d)"),
+            },
+            testcase {
+                input: String::from("add(a, b, 1, 2 * 3, 4 + 5, add(6, 7 * 8));"),
+                expected: String::from("add(a, b, 1, (2 * 3), (4 + 5), add(6, (7 * 8)))"),
+            },
+            testcase {
+                input: String::from("add(a + b + c * d / f + g;"),
+                expected: String::from("add((((a + b) + ((c * d) / f)) + g))"),
+            },
+        ];
+
+        for t in tests.iter() {
+            let mut l = lexer::Lexer::new(t.input.clone());
+            let mut p = Parser::new(l);
+            let program = p.parse_program().unwrap();
+            check_parser_errors(&p);
+            if program.string() != t.expected {
+                panic!("actual:{}, got:{}", t.expected, program.string());
+            }
+        }
+    }
+
+    #[test]
+    fn test_if_expression() {
+        let input = String::from("if(x<y) {x};");
+        let mut l = lexer::Lexer::new(input);
+        let mut p = Parser::new(l);
+        let program = p.parse_program().unwrap();
+        check_parser_errors(&p);
+
+        if program.statements.len() != 1 {
+            panic!(
+                "program.statements does not contain 2 statements, got={}",
+                program.statements.len()
+            );
+        }
+
+        let stmt = match program.statements[0]
+            .as_any()
+            .downcast_ref::<ast::nodes::ExpressionStatement>()
+        {
+            Some(s) => s,
+            None => panic!("program.statements[0] does not ast::nodes::ExpressionStatement"),
+        };
+
+        let exp = match stmt
+            .expression
+            .as_ref()
+            .unwrap()
+            .as_any()
+            .downcast_ref::<ast::nodes::IfExpression>()
+        {
+            Some(s) => s,
+            None => panic!("stmt does not ast::nodes::IfExpression>"),
+        };
+
+        if !test_infix_expression(
+            exp.condition.as_ref().unwrap(),
+            &Box::new(String::from("x")),
+            String::from("<").clone(),
+            &Box::new(String::from("y")),
+        ) {
+            return;
+        }
+
+        if exp.consequence.as_ref().unwrap().statements.len() != 1 {
+            panic!(
+                "exp.consequence.statements does not contain 1 statements, got={}",
+                exp.consequence.as_ref().unwrap().statements.len()
+            )
+        }
+
+        let consequence = match exp.consequence.as_ref().unwrap().statements[0].as_any().downcast_ref::<ast::nodes::ExpressionStatement>() {
+            Some(s) => s,
+            None => panic!("exp.consequence.as_ref().unwrap().statements[0] is not a ast::nodes::ExpressionStatement"),
+        };
+
+        if !test_identifier(consequence.expression.as_ref().unwrap(), String::from("x")) {
+            return;
+        }
+
+        if let Some(_) = exp.alternative {
+            panic!("exp.alternative should be a None");
+        }
+    }
+
+    #[test]
+    fn test_if_else_expression() {
+        let input = String::from("if(x<y) {x} else {y}");
+        let mut l = lexer::Lexer::new(input);
+        let mut p = Parser::new(l);
+        let program = p.parse_program().unwrap();
+        check_parser_errors(&p);
+
+        if program.statements.len() != 1 {
+            panic!(
+                "program.statements does not contain 2 statements, got={}",
+                program.statements.len()
+            );
+        }
+
+        let stmt = match program.statements[0]
+            .as_any()
+            .downcast_ref::<ast::nodes::ExpressionStatement>()
+        {
+            Some(s) => s,
+            None => panic!("program.statements[0] does not ast::nodes::ExpressionStatement"),
+        };
+
+        let exp = match stmt
+            .expression
+            .as_ref()
+            .unwrap()
+            .as_any()
+            .downcast_ref::<ast::nodes::IfExpression>()
+        {
+            Some(s) => s,
+            None => panic!("stmt does not ast::nodes::IfExpression>"),
+        };
+
+        if !test_infix_expression(
+            exp.condition.as_ref().unwrap(),
+            &Box::new(String::from("x")),
+            String::from("<").clone(),
+            &Box::new(String::from("y")),
+        ) {
+            return;
+        }
+
+        if exp.consequence.as_ref().unwrap().statements.len() != 1 {
+            panic!(
+                "exp.consequence.statements does not contain 1 statements, got={}",
+                exp.consequence.as_ref().unwrap().statements.len()
+            )
+        }
+
+        let consequence = match exp.consequence.as_ref().unwrap().statements[0].as_any().downcast_ref::<ast::nodes::ExpressionStatement>() {
+            Some(s) => s,
+            None => panic!("exp.consequence.as_ref().unwrap().statements[0] is not a ast::nodes::ExpressionStatement"),
+        };
+
+        if !test_identifier(consequence.expression.as_ref().unwrap(), String::from("x")) {
+            return;
+        }
+
+        let alternative = match exp.alternative.as_ref().unwrap().statements[0].as_any().downcast_ref::<ast::nodes::ExpressionStatement>() {
+            Some(s) => s,
+            None => panic!("exp.consequence.as_ref().unwrap().statements[0] is not a ast::nodes::ExpressionStatement"),
+        };
+
+        if !test_identifier(alternative.expression.as_ref().unwrap(), String::from("y")) {
+            return;
+        }
+    }
+
+    #[test]
+    fn test_function_lireral_parsing() {
+        let input = String::from("fn(x,y){x+y;}");
+        let mut l = lexer::Lexer::new(input);
+        let mut p = Parser::new(l);
+        let program = p.parse_program().unwrap();
+        check_parser_errors(&p);
+
+        if program.statements.len() != 1 {
+            panic!(
+                "program.statements does not contain 2 statements, got={}",
+                program.statements.len()
+            );
+        }
+
+        let stmt = match program.statements[0]
+            .as_any()
+            .downcast_ref::<ast::nodes::ExpressionStatement>()
+        {
+            Some(s) => s,
+            None => panic!("program.statements[0] does not ast::nodes::ExpressionStatement"),
+        };
+
+        let function = match stmt
+            .expression
+            .as_ref()
+            .unwrap()
+            .as_any()
+            .downcast_ref::<ast::nodes::FunctionLiteral>()
+        {
+            Some(s) => s,
+            None => panic!("stmt does not ast::nodes::FunctionLiteral>"),
+        };
+
+        if function.parameters.len() != 2 {
+            panic!(
+                "function.parameters is not 2. got {}",
+                function.parameters.len()
+            );
+        }
+
+        test_literal_expression(&function.parameters[0], &String::from("x"));
+        test_literal_expression(&function.parameters[1], &String::from("y"));
+
+        if function.body.as_ref().unwrap().statements.len() != 1 {
+            panic!(
+                "function.body.statements has not 1 statements, got:{}",
+                function.body.as_ref().unwrap().statements.len()
+            );
+        }
+
+        let body = match function.body.as_ref().unwrap().statements[0].as_any().downcast_ref::<ast::nodes::ExpressionStatement>() {
+            Some(s) => s,
+            None => panic!("function.body.as_ref().unwrap().statements[0] is not a ast::nodes::ExpressionStatement"),
+        };
+
+        test_infix_expression(
+            body.expression.as_ref().unwrap(),
+            &Box::new(String::from("x")),
+            String::from("+").clone(),
+            &Box::new(String::from("y")),
+        );
+    }
+
+    #[test]
+    fn test_function_parameter_parsing() {
+        struct test {
+            input: String,
+            expected_params: Vec<String>,
+        }
+
+        let mut inputs = vec![
+            test {
+                input: String::from("fn() {};"),
+                expected_params: Vec::new(),
+            },
+            test {
+                input: String::from("fn(x) {};"),
+                expected_params: vec![String::from("x")],
+            },
+            test {
+                input: String::from("fn(x,y,z) {};"),
+                expected_params: vec![String::from("x"), String::from("y"), String::from("z")],
+            },
+        ];
+
+        for input in inputs.iter() {
+            let mut l = lexer::Lexer::new(input.input.clone());
+            let mut p = Parser::new(l);
+            let program = p.parse_program().unwrap();
+            check_parser_errors(&p);
+
+            let stmt = match program.statements[0]
+                .as_any()
+                .downcast_ref::<ast::nodes::ExpressionStatement>()
+            {
+                Some(s) => s,
+                None => panic!("program.statements[0] does not ast::nodes::ExpressionStatement"),
+            };
+
+            let function = match stmt
+                .expression
+                .as_ref()
+                .unwrap()
+                .as_any()
+                .downcast_ref::<ast::nodes::FunctionLiteral>()
+            {
+                Some(s) => s,
+                None => panic!("stmt does not ast::nodes::FunctionLiteral>"),
+            };
+
+            if function.parameters.len() != input.expected_params.len() {
                 panic!(
-                    "exp.operator is not {:?}, got={:?}",
-                    test.operator, exp.operator
+                    "length parameters wrong want {}, got {}",
+                    function.parameters.len(),
+                    input.expected_params.len()
                 );
             }
 
-            let test_num = match test.left {
-                token::Token::Int(d) => d,
-                _ => 0,
-            };
-
-            let left = match &exp.left {
-                Some(r) => r,
-                None => panic!("left expression is None!"),
-            };
-
-            if !test_integer_literal(&left, test_num) {
-                return;
-            }
-
-            let test_num = match test.right {
-                token::Token::Int(d) => d,
-                _ => 0,
-            };
-
-            let right = match &exp.right {
-                Some(r) => r,
-                None => panic!("right expression is None!"),
-            };
-
-            if !test_integer_literal(&right, test_num) {
-                return;
+            for (i, ident) in input.expected_params.iter().enumerate() {
+                test_literal_expression(&function.parameters[i], ident);
             }
         }
     }
 
-    fn test_let_statement(s: &Box<dyn ast::traits::Prog>, name: String) {
-        if s.token_literal() != String::from("let") {
-            panic!("s.tolen_literal not 'let', got={}", s.token_literal());
-        }
-        let let_s = match s.as_any().downcast_ref::<ast::nodes::LetStatement>() {
-            Some(letstatement) => letstatement,
-            None => panic!("s is not a ast::nodes::LetStatement!"),
-        };
+    #[test]
+    fn test_call_expression_parsing() {
+        let input = String::from(
+            "add(1, 2 * 3, 4 + 5);
+        ",
+        );
+        let mut l = lexer::Lexer::new(input);
+        let mut p = Parser::new(l);
+        let program = p.parse_program().unwrap();
+        check_parser_errors(&p);
 
-        if let_s.name.token_literal() != name {
+        if program.statements.len() != 1 {
             panic!(
-                "let_s.name.token is not token::Token::Ident({}), got=token::Token::Ident({})",
-                name,
-                let_s.name.token_literal()
+                "program.statements does not contain {} statements, got={}",
+                1,
+                program.statements.len()
             );
         }
-        println!("{} {}", let_s.token_literal(), let_s.name.token_literal());
+
+        let stmt = match program.statements[0]
+            .as_ref()
+            .as_any()
+            .downcast_ref::<ast::nodes::ExpressionStatement>()
+        {
+            Some(s) => s,
+            None => panic!("program.statements[0] is not a ast::nodes::ExpressionStatement"),
+        };
+
+        let exp = match stmt
+            .expression
+            .as_ref()
+            .unwrap()
+            .as_any()
+            .downcast_ref::<ast::nodes::CallExpression>()
+        {
+            Some(s) => s,
+            None => panic!("stmt.expression is not a ast::nodes::CallExpression"),
+        };
+
+        if !test_identifier(exp.function.as_ref().unwrap(), String::from("add")) {
+            return;
+        }
+
+        if exp.arguments.len() != 3 {
+            panic!("wrong length of arguments. got={}", exp.arguments.len());
+        }
+
+        test_literal_expression(&exp.arguments[0], &1);
+        test_infix_expression(
+            &exp.arguments[1],
+            &Box::new(2),
+            String::from("*"),
+            &Box::new(3),
+        );
+        test_infix_expression(
+            &exp.arguments[2],
+            &Box::new(4),
+            String::from("+"),
+            &Box::new(5),
+        );
     }
 
-    fn test_integer_literal(il: &Box<dyn ast::traits::Expression>, value: u32) -> bool {
-        let integer = match il.as_any().downcast_ref::<ast::nodes::IntegerLiteral>() {
+    fn test_let_statement(s: &Box<dyn ast::traits::Prog>, name: String) -> bool {
+        let let_s = match s.as_any().downcast_ref::<ast::nodes::LetStatement>() {
+            Some(letstatement) => letstatement,
+            None => {
+                println!("s is not a ast::nodes::LetStatement!");
+                return false;
+            }
+        };
+
+        if let_s.name.token != token::Token::Ident(name.clone()) {
+            println!(
+                "let_s.name.token is not token::Token::Ident({}), got={:?})",
+                name, let_s.name.token
+            );
+            return false;
+        }
+        return true;
+    }
+
+    fn test_literal_expression(exp: &Box<dyn ast::traits::Exp>, expected: &Any) -> bool {
+        if let Some(v) = expected.downcast_ref::<String>() {
+            return test_identifier(exp, v.clone());
+        } else if let Some(v) = expected.downcast_ref::<u32>() {
+            return test_integer_literal(exp, *v);
+        } else if let Some(v) = expected.downcast_ref::<bool>() {
+            return test_bootlean_literal(exp, *v);
+        }
+        false
+    }
+
+    fn test_infix_expression(exp: &Any, left: &Any, operator: String, right: &Any) -> bool {
+        let infix = match exp.downcast_ref::<Box<dyn ast::traits::Prog>>() {
+            Some(s) => match s.as_any().downcast_ref::<ast::nodes::ExpressionStatement>() {
+                Some(laststatement) => {
+                    match laststatement
+                        .expression
+                        .as_ref()
+                        .unwrap()
+                        .as_any()
+                        .downcast_ref::<ast::nodes::InfixExpression>()
+                    {
+                        Some(s) => s,
+                        None => {
+                            return false;
+                        }
+                    }
+                }
+                None => match exp.downcast_ref::<Box<dyn ast::traits::Exp>>() {
+                    Some(s) => {
+                        match s
+                            .as_ref()
+                            .as_any()
+                            .downcast_ref::<ast::nodes::InfixExpression>()
+                        {
+                            Some(s) => s,
+                            None => {
+                                return false;
+                            }
+                        }
+                    }
+                    None => {
+                        return false;
+                    }
+                },
+            },
+            None => {
+                return false;
+            }
+        };
+        if !test_literal_expression(infix.left.as_ref().unwrap(), left) {
+            return false;
+        }
+        if infix.operator != token::token_from_literal(operator.clone()) {
+            println!("exp.operator is not {}, got={:?}", operator, infix.operator);
+            return false;
+        }
+        if !test_literal_expression(infix.right.as_ref().unwrap(), right) {
+            return false;
+        }
+
+        true
+    }
+
+    fn test_identifier(exp: &Box<dyn ast::traits::Exp>, value: String) -> bool {
+        let ident = match exp.as_any().downcast_ref::<ast::nodes::Identifier>() {
             Some(s) => s,
             None => {
                 println!("expression is not Identifier");
@@ -653,11 +1293,47 @@ mod tests {
             }
         };
 
+        if ident.token != token::Token::Ident(value.clone()) {
+            println!("ident is not {}, got {:?}", value, ident.token);
+            return false;
+        }
+
+        true
+    }
+
+    fn test_integer_literal(il: &Box<dyn ast::traits::Exp>, value: u32) -> bool {
+        let integer = match il.as_any().downcast_ref::<ast::nodes::IntegerLiteral>() {
+            Some(s) => s,
+            None => {
+                println!("expression is not IntegerLiteral");
+                return false;
+            }
+        };
+
         if integer.token != token::Token::Int(value) {
-            println!("ident is not a Ident(foobar), got:{:?}", integer.token);
+            println!("ident is not a Ident({}), got:{:?}", value, integer.token);
             return false;
         }
         println!("got token{:?}", integer.token);
+        return true;
+    }
+
+    fn test_bootlean_literal(il: &Box<dyn ast::traits::Exp>, value: bool) -> bool {
+        let boolean = match il.as_any().downcast_ref::<ast::nodes::Boolean>() {
+            Some(s) => s,
+            None => {
+                println!("expression is not Boolean");
+                return false;
+            }
+        };
+
+        if boolean.token != token::Token::Boolean(value) {
+            println!(
+                "boolean is not a Boolean({}), got:{:?}",
+                value, boolean.token
+            );
+            return false;
+        }
         return true;
     }
 
