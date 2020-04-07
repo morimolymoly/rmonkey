@@ -463,7 +463,7 @@ mod tests {
                 None => panic!("stmt is not a ast::nodes::LetStatement"),
             };
 
-            if !test_literal_expression(&exp.expression.as_ref().unwrap(), Box::new(&test.expected_value)) {
+            if !test_literal_expression(&exp.expression.as_ref().unwrap(), &test.expected_value) {
                 return;
             }
         }
@@ -514,7 +514,7 @@ mod tests {
                 None => panic!("stmt is not a ast::nodes::ReturnStatement"),
             };
 
-            if !test_literal_expression(&exp.return_value.as_ref().unwrap(), Box::new(&test.expected_value)) {
+            if !test_literal_expression(&exp.return_value.as_ref().unwrap(), &test.expected_value) {
                 return;
             }
         }
@@ -655,7 +655,7 @@ mod tests {
                     test.operator, exp.operator
                 );
             }
-            test_literal_expression(&exp.right.as_ref().unwrap(), Box::new(&test.value));
+            test_literal_expression(&exp.right.as_ref().unwrap(), &test.value);
         }
     }
 
@@ -756,7 +756,7 @@ mod tests {
             }
 
             let stmt = &program.statements[0];
-            test_infix_expression(Box::new(stmt), Box::new(&test.left), test.operator.clone(), Box::new(&test.right));
+            test_infix_expression(stmt, &test.left, test.operator.clone(), &test.right);
         }
     }
 
@@ -916,10 +916,10 @@ mod tests {
         };
 
         if !test_infix_expression(
-            Box::new(exp.condition.as_ref().unwrap()),
-            Box::new(String::from("x")),
+            exp.condition.as_ref().unwrap(),
+            &Box::new(String::from("x")),
             String::from("<").clone(),
-            Box::new(String::from("y")),
+            &Box::new(String::from("y")),
         ) {
             return;
         }
@@ -980,10 +980,10 @@ mod tests {
         };
 
         if !test_infix_expression(
-            Box::new(exp.condition.as_ref().unwrap()),
-            Box::new(String::from("x")),
+            exp.condition.as_ref().unwrap(),
+            &Box::new(String::from("x")),
             String::from("<").clone(),
-            Box::new(String::from("y")),
+            &Box::new(String::from("y")),
         ) {
             return;
         }
@@ -1055,8 +1055,8 @@ mod tests {
             );
         }
 
-        test_literal_expression(&function.parameters[0], Box::new(String::from("x")));
-        test_literal_expression(&function.parameters[1], Box::new(String::from("y")));
+        test_literal_expression(&function.parameters[0], &Box::new(String::from("x")));
+        test_literal_expression(&function.parameters[1], &Box::new(String::from("y")));
 
         if function.body.as_ref().unwrap().statements.len() != 1 {
             panic!(
@@ -1071,10 +1071,10 @@ mod tests {
         };
 
         test_infix_expression(
-            Box::new(body.expression.as_ref().unwrap()),
-            Box::new(String::from("x")),
+            body.expression.as_ref().unwrap(),
+            &Box::new(String::from("x")),
             String::from("+").clone(),
-            Box::new(String::from("y")),
+            &Box::new(String::from("y")),
         );
     }
 
@@ -1134,7 +1134,7 @@ mod tests {
             }
 
             for (i, ident) in input.expected_params.iter().enumerate() {
-                test_literal_expression(&function.parameters[i], Box::new(ident));
+                test_literal_expression(&function.parameters[i], ident);
             }
         }
     }
@@ -1186,18 +1186,18 @@ mod tests {
             panic!("wrong length of arguments. got={}", exp.arguments.len());
         }
 
-        test_literal_expression(&exp.arguments[0], Box::new(1));
+        test_literal_expression(&exp.arguments[0], &Box::new(1));
         test_infix_expression(
-            Box::new(exp.arguments[1].clone()),
-            Box::new(2),
+            &Box::new(exp.arguments[1].clone()),
+            &Box::new(2),
             String::from("*"),
-            Box::new(3),
+            &Box::new(3),
         );
         test_infix_expression(
-            Box::new(exp.arguments[2].clone()),
-            Box::new(4),
+            &Box::new(exp.arguments[2].clone()),
+            &Box::new(4),
             String::from("+"),
-            Box::new(5),
+            &Box::new(5),
         );
     }
 
@@ -1220,7 +1220,7 @@ mod tests {
         return true;
     }
 
-    fn test_literal_expression(exp: &Box<dyn ast::traits::Exp>, expected: Box<dyn Any>) -> bool {
+    fn test_literal_expression(exp: &Box<dyn ast::traits::Exp>, expected: &Any) -> bool {
         if let Some(v) = expected.downcast_ref::<String>() {
             return test_identifier(exp, v.clone());
         } else if let Some(v) = expected.downcast_ref::<u32>() {
@@ -1231,7 +1231,7 @@ mod tests {
         false
     }
 
-    fn test_infix_expression(exp: Box<dyn Any>, left: Box<dyn Any>, operator: String, right: Box<dyn Any>) -> bool {
+    fn test_infix_expression(exp: &Any, left: &Any, operator: String, right: &Any) -> bool {
         let infix = match exp.downcast_ref::<Box<dyn ast::traits::Prog>>() {
             Some(s) => match s.as_any().downcast_ref::<ast::nodes::ExpressionStatement>() {
                 Some(laststatement) => {
