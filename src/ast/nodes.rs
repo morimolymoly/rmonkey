@@ -16,7 +16,7 @@ Implemented Statement
 pub struct LetStatement {
     pub token: token::Token,
     pub name: Identifier,
-    pub expression: Option<Box<dyn Expression>>,
+    pub expression: Option<Box<dyn Exp>>,
 }
 
 impl LetStatement {
@@ -55,7 +55,7 @@ impl Statement for LetStatement {
 #[derive(Clone)]
 pub struct ReturnStatement {
     pub token: token::Token,
-    pub return_value: Option<Box<dyn Expression>>,
+    pub return_value: Option<Box<dyn Exp>>,
 }
 
 impl ReturnStatement {

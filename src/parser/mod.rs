@@ -89,7 +89,11 @@ impl Parser {
             return None;
         }
 
-        while !self.cur_token_is(token::Token::Semicolon) {
+        self.next_token();
+
+        stmt.expression = self.parse_expression(Priority::LOWEST);
+
+        if self.peek_token_is(token::Token::Semicolon) {
             self.next_token();
         }
 
@@ -102,7 +106,9 @@ impl Parser {
 
         self.next_token();
 
-        while !self.cur_token_is(token::Token::Semicolon) {
+        stmt.return_value = self.parse_expression(Priority::LOWEST);
+
+        if self.peek_token_is(token::Token::Semicolon) {
             self.next_token();
         }
 
@@ -405,73 +411,111 @@ mod tests {
     use super::*;
     #[test]
     fn test_let_statements() {
-        let input = String::from(
-            "
-        let x = 5;
-        let y = 10;
-        let foobar = 114514;
-        ",
-        );
-        let mut l = lexer::Lexer::new(input);
-        let mut p = Parser::new(l);
-
-        let program = p.parse_program();
-        check_parser_errors(&p);
-        if let None = program {
-            panic!("parse_program returned None");
+        struct test {
+            input: String,
+            expected_identifier: String,
+            expected_value: Box<dyn Any>,
         }
 
-        let program = program.unwrap();
+        let mut tests = vec![
+            test {
+                input: String::from("let x = 5;"),
+                expected_identifier: String::from("x"),
+                expected_value: Box::new(5),
+            },
+            test {
+                input: String::from("let y = true;"),
+                expected_identifier: String::from("y"),
+                expected_value: Box::new(true),
+            },
+            test {
+                input: String::from("let foobar = y;"),
+                expected_identifier: String::from("foobar"),
+                expected_value: Box::new(String::from("y")),
+            },
+        ];
 
-        if program.statements.len() != 3 {
-            panic!(
-                "program.statements does not contain 3 statements, got={}",
-                program.statements.len()
-            );
-        }
+        for test in tests.iter() {
+            let mut l = lexer::Lexer::new(test.input.clone());
+            let mut p = Parser::new(l);
 
-        let expected_identifier_name = vec!["x", "y", "foobar"];
+            let program = p.parse_program();
+            check_parser_errors(&p);
+            if let None = program {
+                panic!("parse_program returned None");
+            }
 
-        for (i, tt) in expected_identifier_name.iter().enumerate() {
-            let stmt = &program.statements[i];
-            test_let_statement(stmt, tt.to_string());
+            let program = program.unwrap();
+
+            if program.statements.len() != 1 {
+                panic!(
+                    "program.statements does not contain 1 statements, got={}",
+                    program.statements.len()
+                );
+            }
+            let stmt = &program.statements[0];
+            if !test_let_statement(stmt, test.expected_identifier.clone()) {
+                return;
+            }
+
+            let exp = match stmt.as_any().downcast_ref::<ast::nodes::LetStatement>() {
+                Some(s) => s,
+                None => panic!("stmt is not a ast::nodes::LetStatement"),
+            };
+
+            if !test_literal_expression(&exp.expression.as_ref().unwrap(), &test.expected_value) {
+                return;
+            }
         }
     }
 
-    #[test]
     fn test_return_statements() {
-        let input = String::from(
-            "
-        return 5;
-        return 10;
-        return 114514;
-        ",
-        );
-        let mut l = lexer::Lexer::new(input);
-        let mut p = Parser::new(l);
-
-        let program = p.parse_program();
-        check_parser_errors(&p);
-        if let None = program {
-            panic!("parse_program returned None");
+        struct test {
+            input: String,
+            expected_value: Box<dyn Any>,
         }
 
-        let program = program.unwrap();
+        let mut tests = vec![
+            test {
+                input: String::from("return 5;"),
+                expected_value: Box::new(5),
+            },
+            test {
+                input: String::from("return 114514;"),
+                expected_value: Box::new(114514),
+            },
+            test {
+                input: String::from("return 20;"),
+                expected_value: Box::new(20),
+            },
+        ];
 
-        if program.statements.len() != 3 {
-            panic!(
-                "program.statements does not contain 3 statements, got={}",
-                program.statements.len()
-            );
-        }
+        for test in tests.iter() {
+            let mut l = lexer::Lexer::new(test.input.clone());
+            let mut p = Parser::new(l);
 
-        for stmt in program.statements {
-            let let_s = match stmt.as_any().downcast_ref::<ast::nodes::ReturnStatement>() {
-                Some(laststatement) => laststatement,
-                None => panic!("stmt is not a ast::nodes::ReturnStatement!"),
+            let program = p.parse_program();
+            check_parser_errors(&p);
+            if let None = program {
+                panic!("parse_program returned None");
+            }
+
+            let program = program.unwrap();
+
+            if program.statements.len() != 1 {
+                panic!(
+                    "program.statements does not contain 1 statements, got={}",
+                    program.statements.len()
+                );
+            }
+            let stmt = &program.statements[0];
+            let exp = match stmt.as_any().downcast_ref::<ast::nodes::ReturnStatement>() {
+                Some(s) => s,
+                None => panic!("stmt is not a ast::nodes::ReturnStatement"),
             };
-            if let_s.token != token::Token::Return {
-                panic!("let_s.token not return. got {:?}", let_s.token);
+
+            if !test_literal_expression(&exp.return_value.as_ref().unwrap(), &test.expected_value) {
+                return;
             }
         }
     }
@@ -1157,18 +1201,23 @@ mod tests {
         );
     }
 
-    fn test_let_statement(s: &Box<dyn ast::traits::Prog>, name: String) {
+    fn test_let_statement(s: &Box<dyn ast::traits::Prog>, name: String) -> bool {
         let let_s = match s.as_any().downcast_ref::<ast::nodes::LetStatement>() {
             Some(letstatement) => letstatement,
-            None => panic!("s is not a ast::nodes::LetStatement!"),
+            None => {
+                println!("s is not a ast::nodes::LetStatement!");
+                return false;
+            }
         };
 
         if let_s.name.token != token::Token::Ident(name.clone()) {
-            panic!(
+            println!(
                 "let_s.name.token is not token::Token::Ident({}), got={:?})",
                 name, let_s.name.token
             );
+            return false;
         }
+        return true;
     }
 
     fn test_literal_expression(exp: &Box<dyn ast::traits::Exp>, expected: &Any) -> bool {
