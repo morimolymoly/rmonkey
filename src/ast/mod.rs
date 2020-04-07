@@ -1,9 +1,8 @@
-pub mod nodes;
-pub mod traits;
-use traits::*;
+use crate::token;
+use std::fmt;
 
 pub struct Program {
-    pub statements: Vec<Box<dyn Prog>>,
+    pub statements: Vec<Statement>,
 }
 
 impl Program {
@@ -14,20 +13,119 @@ impl Program {
     }
 }
 
-impl Node for Program {
-    fn token_literal(&self) -> String {
-        if self.statements.len() > 0 {
-            self.statements[0].string()
-        } else {
-            String::from("")
-        }
-    }
-
-    fn string(&self) -> String {
-        let mut string = String::from("");
+impl fmt::Display for Program {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let mut string = String::new();
         for s in self.statements.iter() {
-            string.push_str(&format!("{}", s.string()))
+            string.push_str(&format!("{}", s));
         }
-        string
+        write!(f, "{}", string)
+    }
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub enum Literal {
+    Int(u32),
+    Bool(bool),
+    String(String),
+    Unit,
+}
+
+impl fmt::Display for Literal {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let string = match self {
+            Literal::Int(d) => format!("{}", d),
+            Literal::Bool(d) => format!("{}", d),
+            Literal::String(d) => d.clone(),
+            Literal::Unit => String::from("()"),
+        };
+        write!(f, "{}", string)
+    }
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub enum Expression {
+    Literal(Literal),
+    Block(Vec<Box<Statement>>),
+    // op right
+    Prefix(token::Token, Box<Expression>),
+    // op left right
+    Infix(token::Token, Box<Expression>, Box<Expression>),
+    // condition consequence alternative
+    If(Box<Expression>, Box<Expression>, Option<Box<Expression>>),
+    // name parameters body
+    Function(Vec<Box<Expression>>, Box<Expression>),
+    // function arguments
+    Call(Box<Expression>, Vec<Box<Expression>>),
+    Ident(String),
+}
+
+impl fmt::Display for Expression {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let string = match self {
+            Expression::Literal(literal) => format!("{}", literal),
+            Expression::Block(d) => {
+                let mut string = String::new();
+                for s in d.iter() {
+                    string.push_str(&format!("{}", &s));
+                }
+                string
+            }
+            Expression::Prefix(tok, left) => {
+                format!("({}{})", token::string_from_token(tok.clone()), left)
+            }
+            Expression::Infix(tok, left, right) => format!(
+                "({} {} {})",
+                left,
+                token::string_from_token(tok.clone()),
+                right
+            ),
+            Expression::If(condition, consequence, alternative) => {
+                let string = format!("if{} {}", condition, consequence);
+                let string2 = match alternative {
+                    Some(alt) => format!(" else {}", alt),
+                    None => String::from(""),
+                };
+                format!("{}{}", string, string2)
+            }
+            Expression::Function(params, body) => {
+                let mut param_strings: Vec<String> = Vec::new();
+                for p in params.iter() {
+                    param_strings.push(format!("{}", p));
+                }
+                format!("fn({}){}", param_strings.join(","), body)
+            }
+            Expression::Call(function, arguments) => {
+                let mut args: Vec<String> = Vec::new();
+                for a in arguments.iter() {
+                    args.push(format!("{}", a));
+                }
+                format!("{}({})", function, args.join(", "))
+            }
+            Expression::Ident(name) => format!("{}", name),
+            _ => String::from(""),
+        };
+        write!(f, "{}", string)
+    }
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub enum Statement {
+    // ident value
+    Let(Expression, Expression),
+    // value
+    Return(Expression),
+    // expression
+    ExpStatement(Expression),
+}
+
+impl fmt::Display for Statement {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let string = match self {
+            Statement::Let(e1, e2) => format!("let {} = {};", e1, e2),
+            Statement::Return(e1) => format!("return {};", e1),
+            Statement::ExpStatement(e1) => format!("{}", e1),
+        };
+        write!(f, "{}", string)
     }
 }
