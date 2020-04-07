@@ -5,8 +5,6 @@ mod repl;
 mod token;
 use std::io;
 
-use ast::traits::Node;
-
 fn main() {
     let r = io::stdin();
     let mut reader = r.lock();

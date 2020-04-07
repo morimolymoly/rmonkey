@@ -26,12 +26,10 @@ pub trait Node {
 }
 
 pub trait Statement {
-    fn statement_node(&self);
     fn as_any(&self) -> &dyn Any;
 }
 
 pub trait Expression {
-    fn expresison_node(&self);
     fn as_any(&self) -> &dyn Any;
     fn box_clone_expression(&self) -> Box<dyn Expression>;
 }

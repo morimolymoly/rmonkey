@@ -49,8 +49,6 @@ impl Node for LetStatement {
 }
 
 impl Statement for LetStatement {
-    fn statement_node(&self) {}
-
     fn as_any(&self) -> &dyn Any {
         self
     }
@@ -78,8 +76,6 @@ impl Prog for ReturnStatement {
 }
 
 impl Statement for ReturnStatement {
-    fn statement_node(&self) {}
-
     fn as_any(&self) -> &dyn Any {
         self
     }
@@ -120,8 +116,6 @@ impl ExpressionStatement {
 }
 
 impl Statement for ExpressionStatement {
-    fn statement_node(&self) {}
-
     fn as_any(&self) -> &dyn Any {
         self
     }
@@ -179,7 +173,6 @@ impl Node for PrefixExpression {
 }
 
 impl Expression for PrefixExpression {
-    fn expresison_node(&self) {}
     fn as_any(&self) -> &dyn Any {
         self
     }
@@ -235,7 +228,6 @@ impl Node for InfixExpression {
 }
 
 impl Expression for InfixExpression {
-    fn expresison_node(&self) {}
     fn as_any(&self) -> &dyn Any {
         self
     }
@@ -276,7 +268,6 @@ impl Node for IntegerLiteral {
 }
 
 impl Expression for IntegerLiteral {
-    fn expresison_node(&self) {}
     fn as_any(&self) -> &dyn Any {
         self
     }
@@ -302,9 +293,6 @@ impl Identifier {
             token: token::Token::Illegal,
         }
     }
-    pub fn as_any(&self) -> &dyn Any {
-        self
-    }
 }
 
 impl Node for Identifier {
@@ -320,7 +308,6 @@ impl Node for Identifier {
 }
 
 impl Expression for Identifier {
-    fn expresison_node(&self) {}
     fn as_any(&self) -> &dyn Any {
         self
     }
@@ -358,7 +345,6 @@ impl Node for Boolean {
 }
 
 impl Expression for Boolean {
-    fn expresison_node(&self) {}
     fn as_any(&self) -> &dyn Any {
         self
     }
@@ -403,7 +389,7 @@ impl Node for IfExpression {
         if let None = self.condition {
             return String::from("");
         }
-        let mut string = format!(
+        let string = format!(
             "if{} {}",
             self.condition.as_ref().unwrap().string(),
             self.consequence.as_ref().unwrap().string()
@@ -420,7 +406,6 @@ impl Node for IfExpression {
 }
 
 impl Expression for IfExpression {
-    fn expresison_node(&self) {}
     fn as_any(&self) -> &dyn Any {
         self
     }
@@ -464,7 +449,6 @@ impl Node for BlockStatement {
 }
 
 impl Expression for BlockStatement {
-    fn expresison_node(&self) {}
     fn as_any(&self) -> &dyn Any {
         self
     }
@@ -519,7 +503,6 @@ impl Node for FunctionLiteral {
 }
 
 impl Expression for FunctionLiteral {
-    fn expresison_node(&self) {}
     fn as_any(&self) -> &dyn Any {
         self
     }
@@ -570,7 +553,6 @@ impl Node for CallExpression {
 }
 
 impl Expression for CallExpression {
-    fn expresison_node(&self) {}
     fn as_any(&self) -> &dyn Any {
         self
     }

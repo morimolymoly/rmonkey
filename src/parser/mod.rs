@@ -5,7 +5,6 @@ use crate::lexer;
 use crate::token;
 
 use ast::traits::*;
-use std::any::Any;
 use std::cmp::PartialOrd;
 
 type PrefixParseFn = fn() -> Box<dyn ast::traits::Expression>;
@@ -141,7 +140,7 @@ impl Parser {
                 tok.token = self.cur_token.clone();
                 Some(Box::new(tok))
             }
-            token::Token::Int(d) => {
+            token::Token::Int(_) => {
                 let mut tok = ast::nodes::IntegerLiteral::new();
                 tok.token = self.cur_token.clone();
                 Some(Box::new(tok))
@@ -252,7 +251,7 @@ impl Parser {
         self.next_token();
 
         while !self.cur_token_is(token::Token::RBrace) && !self.cur_token_is(token::Token::EOF) {
-            let mut stmt = self.parse_statement();
+            let stmt = self.parse_statement();
             if let Some(s) = stmt {
                 block.statements.push(s.clone());
             }
@@ -409,26 +408,27 @@ impl Parser {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::any::Any;
     #[test]
     fn test_let_statements() {
-        struct test {
+        struct Test {
             input: String,
             expected_identifier: String,
             expected_value: Box<dyn Any>,
         }
 
-        let mut tests = vec![
-            test {
+        let tests = vec![
+            Test {
                 input: String::from("let x = 5;"),
                 expected_identifier: String::from("x"),
                 expected_value: Box::new(5),
             },
-            test {
+            Test {
                 input: String::from("let y = true;"),
                 expected_identifier: String::from("y"),
                 expected_value: Box::new(true),
             },
-            test {
+            Test {
                 input: String::from("let foobar = y;"),
                 expected_identifier: String::from("foobar"),
                 expected_value: Box::new(String::from("y")),
@@ -436,7 +436,7 @@ mod tests {
         ];
 
         for test in tests.iter() {
-            let mut l = lexer::Lexer::new(test.input.clone());
+            let l = lexer::Lexer::new(test.input.clone());
             let mut p = Parser::new(l);
 
             let program = p.parse_program();
@@ -463,35 +463,35 @@ mod tests {
                 None => panic!("stmt is not a ast::nodes::LetStatement"),
             };
 
-            if !test_literal_expression(&exp.expression.as_ref().unwrap(), &test.expected_value) {
+            if !test_literal_expression(&exp.expression.as_ref().unwrap(), Box::new(&test.expected_value)) {
                 return;
             }
         }
     }
 
     fn test_return_statements() {
-        struct test {
+        struct Test {
             input: String,
             expected_value: Box<dyn Any>,
         }
 
-        let mut tests = vec![
-            test {
+        let tests = vec![
+            Test {
                 input: String::from("return 5;"),
                 expected_value: Box::new(5),
             },
-            test {
+            Test {
                 input: String::from("return 114514;"),
                 expected_value: Box::new(114514),
             },
-            test {
+            Test {
                 input: String::from("return 20;"),
                 expected_value: Box::new(20),
             },
         ];
 
         for test in tests.iter() {
-            let mut l = lexer::Lexer::new(test.input.clone());
+            let l = lexer::Lexer::new(test.input.clone());
             let mut p = Parser::new(l);
 
             let program = p.parse_program();
@@ -514,7 +514,7 @@ mod tests {
                 None => panic!("stmt is not a ast::nodes::ReturnStatement"),
             };
 
-            if !test_literal_expression(&exp.return_value.as_ref().unwrap(), &test.expected_value) {
+            if !test_literal_expression(&exp.return_value.as_ref().unwrap(), Box::new(&test.expected_value)) {
                 return;
             }
         }
@@ -523,7 +523,7 @@ mod tests {
     #[test]
     fn test_identifier_expression() {
         let input = String::from("foobar;");
-        let mut l = lexer::Lexer::new(input);
+        let l = lexer::Lexer::new(input);
         let mut p = Parser::new(l);
 
         let program = p.parse_program();
@@ -558,7 +558,7 @@ mod tests {
     #[test]
     fn test_integer_literal_expression() {
         let input = String::from("5;");
-        let mut l = lexer::Lexer::new(input);
+        let l = lexer::Lexer::new(input);
         let mut p = Parser::new(l);
 
         let program = p.parse_program();
@@ -593,18 +593,18 @@ mod tests {
 
     #[test]
     fn test_parsing_prefix_expressions() {
-        struct prefixTest {
+        struct PrefixTest {
             input: String,
             operator: token::Token,
             value: Box<dyn Any>,
         }
-        let mut prefix_tests = vec![
-            prefixTest {
+        let prefix_tests = vec![
+            PrefixTest {
                 input: String::from("!5;"),
                 operator: token::Token::Bang,
                 value: Box::new(5),
             },
-            prefixTest {
+            PrefixTest {
                 input: String::from("-15;"),
                 operator: token::Token::Minus,
                 value: Box::new(15),
@@ -612,7 +612,7 @@ mod tests {
         ];
 
         for test in prefix_tests.iter() {
-            let mut l = lexer::Lexer::new(test.input.clone());
+            let l = lexer::Lexer::new(test.input.clone());
             let mut p = Parser::new(l);
 
             let program = p.parse_program();
@@ -655,80 +655,80 @@ mod tests {
                     test.operator, exp.operator
                 );
             }
-            test_literal_expression(&exp.right.as_ref().unwrap(), &test.value);
+            test_literal_expression(&exp.right.as_ref().unwrap(), Box::new(&test.value));
         }
     }
 
     #[test]
     fn test_parsing_infix_expressions() {
-        struct infixTest {
+        struct InfixTest {
             input: String,
             left: Box<dyn Any>,
             operator: String,
             right: Box<dyn Any>,
         }
-        let mut infix_tests = vec![
-            infixTest {
+        let infix_tests = vec![
+            InfixTest {
                 input: String::from("5 + 5;"),
                 left: Box::new(5),
                 operator: String::from("+"),
                 right: Box::new(5),
             },
-            infixTest {
+            InfixTest {
                 input: String::from("5 - 5;"),
                 left: Box::new(5),
                 operator: String::from("-"),
                 right: Box::new(5),
             },
-            infixTest {
+            InfixTest {
                 input: String::from("5 * 5;"),
                 left: Box::new(5),
                 operator: String::from("*"),
                 right: Box::new(5),
             },
-            infixTest {
+            InfixTest {
                 input: String::from("5 / 5;"),
                 left: Box::new(5),
                 operator: String::from("/"),
                 right: Box::new(5),
             },
-            infixTest {
+            InfixTest {
                 input: String::from("5 > 5;"),
                 left: Box::new(5),
                 operator: String::from(">"),
                 right: Box::new(5),
             },
-            infixTest {
+            InfixTest {
                 input: String::from("5 < 5;"),
                 left: Box::new(5),
                 operator: String::from("<"),
                 right: Box::new(5),
             },
-            infixTest {
+            InfixTest {
                 input: String::from("5 == 5;"),
                 left: Box::new(5),
                 operator: String::from("=="),
                 right: Box::new(5),
             },
-            infixTest {
+            InfixTest {
                 input: String::from("5 != 5;"),
                 left: Box::new(5),
                 operator: String::from("!="),
                 right: Box::new(5),
             },
-            infixTest {
+            InfixTest {
                 input: String::from("true == true;"),
                 left: Box::new(true),
                 operator: String::from("=="),
                 right: Box::new(true),
             },
-            infixTest {
+            InfixTest {
                 input: String::from("true != false;"),
                 left: Box::new(true),
                 operator: String::from("!="),
                 right: Box::new(false),
             },
-            infixTest {
+            InfixTest {
                 input: String::from("false == false;"),
                 left: Box::new(false),
                 operator: String::from("=="),
@@ -737,7 +737,7 @@ mod tests {
         ];
 
         for test in infix_tests.iter() {
-            let mut l = lexer::Lexer::new(test.input.clone());
+            let  l = lexer::Lexer::new(test.input.clone());
             let mut p = Parser::new(l);
 
             let program = p.parse_program();
@@ -756,7 +756,7 @@ mod tests {
             }
 
             let stmt = &program.statements[0];
-            test_infix_expression(stmt, &test.left, test.operator.clone(), &test.right);
+            test_infix_expression(Box::new(stmt), Box::new(&test.left), test.operator.clone(), Box::new(&test.right));
         }
     }
 
@@ -770,7 +770,7 @@ mod tests {
 
         let expected_vec = vec![true, false];
 
-        let mut l = lexer::Lexer::new(input);
+        let  l = lexer::Lexer::new(input);
         let mut p = Parser::new(l);
 
         let program = p.parse_program();
@@ -818,60 +818,60 @@ mod tests {
 
     #[test]
     fn test_operator_precedence_parsing() {
-        struct testcase {
+        struct TestCase {
             input: String,
             expected: String,
         }
 
-        let mut tests = vec![
-            testcase {
+        let  tests = vec![
+            TestCase {
                 input: String::from("true;"),
                 expected: String::from("true"),
             },
-            testcase {
+            TestCase {
                 input: String::from("false;"),
                 expected: String::from("false"),
             },
-            testcase {
+            TestCase {
                 input: String::from("3>5 == false;"),
                 expected: String::from("((3 > 5) == false)"),
             },
-            testcase {
+            TestCase {
                 input: String::from("1 + (2 + 3) + 4;"),
                 expected: String::from("((1 + (2 + 3)) + 4)"),
             },
-            testcase {
+            TestCase {
                 input: String::from("(5 + 5) * 2;"),
                 expected: String::from("((5 + 5) * 2)"),
             },
-            testcase {
+            TestCase {
                 input: String::from("2 / (5 + 5);"),
                 expected: String::from("(2 / (5 + 5))"),
             },
-            testcase {
+            TestCase {
                 input: String::from("-(5 + 5);"),
                 expected: String::from("(-(5 + 5))"),
             },
-            testcase {
+            TestCase {
                 input: String::from("!(true == true);"),
                 expected: String::from("(!(true == true))"),
             },
-            testcase {
+            TestCase {
                 input: String::from("a + add(b * c) + d;"),
                 expected: String::from("((a + add((b * c))) + d)"),
             },
-            testcase {
+            TestCase {
                 input: String::from("add(a, b, 1, 2 * 3, 4 + 5, add(6, 7 * 8));"),
                 expected: String::from("add(a, b, 1, (2 * 3), (4 + 5), add(6, (7 * 8)))"),
             },
-            testcase {
+            TestCase {
                 input: String::from("add(a + b + c * d / f + g;"),
                 expected: String::from("add((((a + b) + ((c * d) / f)) + g))"),
             },
         ];
 
         for t in tests.iter() {
-            let mut l = lexer::Lexer::new(t.input.clone());
+            let  l = lexer::Lexer::new(t.input.clone());
             let mut p = Parser::new(l);
             let program = p.parse_program().unwrap();
             check_parser_errors(&p);
@@ -884,7 +884,7 @@ mod tests {
     #[test]
     fn test_if_expression() {
         let input = String::from("if(x<y) {x};");
-        let mut l = lexer::Lexer::new(input);
+        let  l = lexer::Lexer::new(input);
         let mut p = Parser::new(l);
         let program = p.parse_program().unwrap();
         check_parser_errors(&p);
@@ -916,10 +916,10 @@ mod tests {
         };
 
         if !test_infix_expression(
-            exp.condition.as_ref().unwrap(),
-            &Box::new(String::from("x")),
+            Box::new(exp.condition.as_ref().unwrap()),
+            Box::new(String::from("x")),
             String::from("<").clone(),
-            &Box::new(String::from("y")),
+            Box::new(String::from("y")),
         ) {
             return;
         }
@@ -948,7 +948,7 @@ mod tests {
     #[test]
     fn test_if_else_expression() {
         let input = String::from("if(x<y) {x} else {y}");
-        let mut l = lexer::Lexer::new(input);
+        let  l = lexer::Lexer::new(input);
         let mut p = Parser::new(l);
         let program = p.parse_program().unwrap();
         check_parser_errors(&p);
@@ -980,10 +980,10 @@ mod tests {
         };
 
         if !test_infix_expression(
-            exp.condition.as_ref().unwrap(),
-            &Box::new(String::from("x")),
+            Box::new(exp.condition.as_ref().unwrap()),
+            Box::new(String::from("x")),
             String::from("<").clone(),
-            &Box::new(String::from("y")),
+            Box::new(String::from("y")),
         ) {
             return;
         }
@@ -1017,7 +1017,7 @@ mod tests {
     #[test]
     fn test_function_lireral_parsing() {
         let input = String::from("fn(x,y){x+y;}");
-        let mut l = lexer::Lexer::new(input);
+        let l = lexer::Lexer::new(input);
         let mut p = Parser::new(l);
         let program = p.parse_program().unwrap();
         check_parser_errors(&p);
@@ -1055,8 +1055,8 @@ mod tests {
             );
         }
 
-        test_literal_expression(&function.parameters[0], &String::from("x"));
-        test_literal_expression(&function.parameters[1], &String::from("y"));
+        test_literal_expression(&function.parameters[0], Box::new(String::from("x")));
+        test_literal_expression(&function.parameters[1], Box::new(String::from("y")));
 
         if function.body.as_ref().unwrap().statements.len() != 1 {
             panic!(
@@ -1071,37 +1071,37 @@ mod tests {
         };
 
         test_infix_expression(
-            body.expression.as_ref().unwrap(),
-            &Box::new(String::from("x")),
+            Box::new(body.expression.as_ref().unwrap()),
+            Box::new(String::from("x")),
             String::from("+").clone(),
-            &Box::new(String::from("y")),
+            Box::new(String::from("y")),
         );
     }
 
     #[test]
     fn test_function_parameter_parsing() {
-        struct test {
+        struct Test {
             input: String,
             expected_params: Vec<String>,
         }
 
-        let mut inputs = vec![
-            test {
+        let inputs = vec![
+            Test {
                 input: String::from("fn() {};"),
                 expected_params: Vec::new(),
             },
-            test {
+            Test {
                 input: String::from("fn(x) {};"),
                 expected_params: vec![String::from("x")],
             },
-            test {
+            Test {
                 input: String::from("fn(x,y,z) {};"),
                 expected_params: vec![String::from("x"), String::from("y"), String::from("z")],
             },
         ];
 
         for input in inputs.iter() {
-            let mut l = lexer::Lexer::new(input.input.clone());
+            let l = lexer::Lexer::new(input.input.clone());
             let mut p = Parser::new(l);
             let program = p.parse_program().unwrap();
             check_parser_errors(&p);
@@ -1134,7 +1134,7 @@ mod tests {
             }
 
             for (i, ident) in input.expected_params.iter().enumerate() {
-                test_literal_expression(&function.parameters[i], ident);
+                test_literal_expression(&function.parameters[i], Box::new(ident));
             }
         }
     }
@@ -1145,7 +1145,7 @@ mod tests {
             "add(1, 2 * 3, 4 + 5);
         ",
         );
-        let mut l = lexer::Lexer::new(input);
+        let l = lexer::Lexer::new(input);
         let mut p = Parser::new(l);
         let program = p.parse_program().unwrap();
         check_parser_errors(&p);
@@ -1186,18 +1186,18 @@ mod tests {
             panic!("wrong length of arguments. got={}", exp.arguments.len());
         }
 
-        test_literal_expression(&exp.arguments[0], &1);
+        test_literal_expression(&exp.arguments[0], Box::new(1));
         test_infix_expression(
-            &exp.arguments[1],
-            &Box::new(2),
+            Box::new(exp.arguments[1].clone()),
+            Box::new(2),
             String::from("*"),
-            &Box::new(3),
+            Box::new(3),
         );
         test_infix_expression(
-            &exp.arguments[2],
-            &Box::new(4),
+            Box::new(exp.arguments[2].clone()),
+            Box::new(4),
             String::from("+"),
-            &Box::new(5),
+            Box::new(5),
         );
     }
 
@@ -1220,7 +1220,7 @@ mod tests {
         return true;
     }
 
-    fn test_literal_expression(exp: &Box<dyn ast::traits::Exp>, expected: &Any) -> bool {
+    fn test_literal_expression(exp: &Box<dyn ast::traits::Exp>, expected: Box<dyn Any>) -> bool {
         if let Some(v) = expected.downcast_ref::<String>() {
             return test_identifier(exp, v.clone());
         } else if let Some(v) = expected.downcast_ref::<u32>() {
@@ -1231,7 +1231,7 @@ mod tests {
         false
     }
 
-    fn test_infix_expression(exp: &Any, left: &Any, operator: String, right: &Any) -> bool {
+    fn test_infix_expression(exp: Box<dyn Any>, left: Box<dyn Any>, operator: String, right: Box<dyn Any>) -> bool {
         let infix = match exp.downcast_ref::<Box<dyn ast::traits::Prog>>() {
             Some(s) => match s.as_any().downcast_ref::<ast::nodes::ExpressionStatement>() {
                 Some(laststatement) => {
