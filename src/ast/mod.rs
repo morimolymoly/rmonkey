@@ -1,3 +1,4 @@
+#[allow(dead_code)]
 use crate::token;
 use std::fmt;
 
@@ -103,7 +104,6 @@ impl fmt::Display for Expression {
                 format!("{}({})", function, args.join(", "))
             }
             Expression::Ident(name) => format!("{}", name),
-            _ => String::from(""),
         };
         write!(f, "{}", string)
     }

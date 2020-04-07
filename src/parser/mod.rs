@@ -152,7 +152,7 @@ impl Parser {
                 exp
             }
             token::Token::If => {
-                let token = self.cur_token.clone();
+                let _ = self.cur_token.clone();
 
                 if !self.expect_peek(token::Token::LParen) {
                     return None;
@@ -191,7 +191,7 @@ impl Parser {
                 ))
             }
             token::Token::Function => {
-                let token = self.cur_token.clone();
+                let _ = self.cur_token.clone();
 
                 if !self.expect_peek(token::Token::LParen) {
                     return None;
@@ -222,12 +222,12 @@ impl Parser {
         match self.cur_token {
             token::Token::LParen => {
                 let function = Box::new(left);
-                let token = self.cur_token.clone();
+                let _ = self.cur_token.clone();
                 let arguments = self.parse_call_arguments();
                 Expression::Call(function, arguments)
             }
             _ => {
-                let token = self.cur_token.clone();
+                let _ = self.cur_token.clone();
                 let operator = self.cur_token.clone();
 
                 let priority = self.cur_priority();
