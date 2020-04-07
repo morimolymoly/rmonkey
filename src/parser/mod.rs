@@ -189,8 +189,56 @@ impl Parser {
 
                 Some(Box::new(tok))
             }
+            token::Token::Function => {
+                let mut tok = ast::nodes::FunctionLiteral::new();
+                tok.token = self.cur_token.clone();
+
+                if !self.expect_peek(token::Token::LParen) {
+                    return None;
+                }
+
+                tok.parameters = self.parse_function_parameters();
+
+                if !self.expect_peek(token::Token::LBrace) {
+                    return None;
+                }
+
+                tok.body = self.parse_block_statement();
+
+                Some(Box::new(tok))
+            }
             _ => None,
         }
+    }
+
+    fn parse_function_parameters(&mut self) -> Vec<Box<dyn ast::traits::Exp>> {
+        let mut ret: Vec<Box<dyn ast::traits::Exp>> = Vec::new();
+
+        if self.peek_token_is(token::Token::RParen) {
+            self.next_token();
+            return ret;
+        }
+        self.next_token();
+
+        let mut ident = ast::nodes::Identifier::new();
+        ident.token = self.cur_token.clone();
+
+        ret.push(Box::new(ident));
+
+        while self.peek_token_is(token::Token::Comma) {
+            self.next_token();
+            self.next_token();
+
+            let mut ident = ast::nodes::Identifier::new();
+            ident.token = self.cur_token.clone();
+            ret.push(Box::new(ident));
+        }
+
+        if self.expect_peek(token::Token::RParen) {
+            return ret;
+        }
+
+        ret
     }
 
     fn parse_block_statement(&mut self) -> Option<ast::nodes::BlockStatement> {
@@ -865,6 +913,131 @@ mod tests {
 
         if !test_identifier(alternative.expression.as_ref().unwrap(), String::from("y")) {
             return;
+        }
+    }
+
+    #[test]
+    fn test_function_lireral_parsing() {
+        let input = String::from("fn(x,y){x+y;}");
+        let mut l = lexer::Lexer::new(input);
+        let mut p = Parser::new(l);
+        let program = p.parse_program().unwrap();
+        check_parser_errors(&p);
+
+        if program.statements.len() != 1 {
+            panic!(
+                "program.statements does not contain 2 statements, got={}",
+                program.statements.len()
+            );
+        }
+
+        let stmt = match program.statements[0]
+            .as_any()
+            .downcast_ref::<ast::nodes::ExpressionStatement>()
+        {
+            Some(s) => s,
+            None => panic!("program.statements[0] does not ast::nodes::ExpressionStatement"),
+        };
+
+        let function = match stmt
+            .expression
+            .as_ref()
+            .unwrap()
+            .as_any()
+            .downcast_ref::<ast::nodes::FunctionLiteral>()
+        {
+            Some(s) => s,
+            None => panic!("stmt does not ast::nodes::FunctionLiteral>"),
+        };
+
+        if function.parameters.len() != 2 {
+            panic!(
+                "function.parameters is not 2. got {}",
+                function.parameters.len()
+            );
+        }
+
+        test_literal_expression(&function.parameters[0], &String::from("x"));
+        test_literal_expression(&function.parameters[1], &String::from("y"));
+
+        if function.body.as_ref().unwrap().statements.len() != 1 {
+            panic!(
+                "function.body.statements has not 1 statements, got:{}",
+                function.body.as_ref().unwrap().statements.len()
+            );
+        }
+
+        let body = match function.body.as_ref().unwrap().statements[0].as_any().downcast_ref::<ast::nodes::ExpressionStatement>() {
+            Some(s) => s,
+            None => panic!("function.body.as_ref().unwrap().statements[0] is not a ast::nodes::ExpressionStatement"),
+        };
+
+        test_infix_expression(
+            body.expression.as_ref().unwrap(),
+            &Box::new(String::from("x")),
+            String::from("+").clone(),
+            &Box::new(String::from("y")),
+        );
+    }
+
+    #[test]
+    fn test_function_parameter_parsing() {
+        struct test {
+            input: String,
+            expected_params: Vec<String>,
+        }
+
+        let mut inputs = vec![
+            test {
+                input: String::from("fn() {};"),
+                expected_params: Vec::new(),
+            },
+            test {
+                input: String::from("fn(x) {};"),
+                expected_params: vec![String::from("x")],
+            },
+            test {
+                input: String::from("fn(x,y,z) {};"),
+                expected_params: vec![String::from("x"), String::from("y"), String::from("z")],
+            },
+        ];
+
+        for input in inputs.iter() {
+            let mut l = lexer::Lexer::new(input.input.clone());
+            let mut p = Parser::new(l);
+            let program = p.parse_program().unwrap();
+            check_parser_errors(&p);
+
+            let stmt = match program.statements[0]
+                .as_any()
+                .downcast_ref::<ast::nodes::ExpressionStatement>()
+            {
+                Some(s) => s,
+                None => panic!("program.statements[0] does not ast::nodes::ExpressionStatement"),
+            };
+
+            let function = match stmt
+                .expression
+                .as_ref()
+                .unwrap()
+                .as_any()
+                .downcast_ref::<ast::nodes::FunctionLiteral>()
+            {
+                Some(s) => s,
+                None => panic!("stmt does not ast::nodes::FunctionLiteral>"),
+            };
+
+            if function.parameters.len() != input.expected_params.len() {
+                panic!(
+                    "length parameters wrong want {}, got {}",
+                    function.parameters.len(),
+                    input.expected_params.len()
+                );
+            }
+
+            for (i, ident) in input.expected_params.iter().enumerate() {
+                test_literal_expression(&function.parameters[i], ident);
+            }
         }
     }
 

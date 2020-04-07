@@ -464,3 +464,58 @@ impl Expression for BlockStatement {
         Box::new((*self).clone())
     }
 }
+
+#[derive(Clone)]
+pub struct FunctionLiteral {
+    pub token: token::Token,
+    pub parameters: Vec<Box<dyn Exp>>,
+    pub body: Option<BlockStatement>,
+}
+
+impl FunctionLiteral {
+    pub fn new() -> FunctionLiteral {
+        FunctionLiteral {
+            token: token::Token::Illegal,
+            parameters: Vec::new(),
+            body: None,
+        }
+    }
+}
+
+impl Exp for FunctionLiteral {
+    fn box_clone_exp(&self) -> Box<dyn Exp> {
+        Box::new((*self).clone())
+    }
+}
+
+impl Node for FunctionLiteral {
+    fn token_literal(&self) -> String {
+        token::string_from_token(self.token.clone())
+    }
+    fn string(&self) -> String {
+        let mut param_strings: Vec<String> = Vec::new();
+        for p in self.parameters.iter() {
+            param_strings.push(p.string());
+        }
+        let body_string = match &self.body {
+            Some(s) => s.string(),
+            None => String::from(""),
+        };
+        format!(
+            "{}({}){}",
+            self.token_literal(),
+            param_strings.join(","),
+            body_string
+        )
+    }
+}
+
+impl Expression for FunctionLiteral {
+    fn expresison_node(&self) {}
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+    fn box_clone_expression(&self) -> Box<dyn Expression> {
+        Box::new((*self).clone())
+    }
+}
