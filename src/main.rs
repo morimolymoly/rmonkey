@@ -17,7 +17,7 @@ fn main() {
     */
     let l = lexer::Lexer::new(String::from(
         "
-        if(x<y) {x}
+        add(1, 2 * 3, 4 + 5);
 ",
     ));
     let mut p = parser::Parser::new(l);

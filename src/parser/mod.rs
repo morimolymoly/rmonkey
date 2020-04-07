@@ -121,7 +121,6 @@ impl Parser {
     }
     fn parse_expression(&mut self, p: Priority) -> Option<Box<dyn ast::traits::Exp>> {
         let mut leftexp = self.prefix_parse().unwrap();
-
         while !self.peek_token_is(token::Token::Semicolon) && p < self.peek_priority() {
             self.next_token();
             leftexp = self.parse_infix_expression(leftexp.clone());
@@ -337,6 +336,7 @@ impl Parser {
             token::Token::Minus => Priority::SUM,
             token::Token::Slash => Priority::PRODUCT,
             token::Token::Asterisk => Priority::PRODUCT,
+            token::Token::LParen => Priority::CALL,
             _ => Priority::LOWEST,
         }
     }
@@ -345,16 +345,58 @@ impl Parser {
         &mut self,
         left: Box<dyn ast::traits::Exp>,
     ) -> Box<dyn ast::traits::Exp> {
-        let mut exp = ast::nodes::InfixExpression::new();
-        exp.token = self.cur_token.clone();
-        exp.operator = self.cur_token.clone();
-        exp.left = Some(left);
+        match self.cur_token {
+            token::Token::LParen => {
+                let mut exp = ast::nodes::CallExpression::new();
+                exp.function = Some(left);
+                exp.token = self.cur_token.clone();
+                exp.arguments = self.parse_call_arguments();
+                Box::new(exp)
+            }
+            _ => {
+                let mut exp = ast::nodes::InfixExpression::new();
+                exp.token = self.cur_token.clone();
+                exp.operator = self.cur_token.clone();
+                exp.left = Some(left);
 
-        let priority = self.cur_priority();
+                let priority = self.cur_priority();
+                self.next_token();
+                exp.right = self.parse_expression(priority);
+
+                Box::new(exp)
+            }
+        }
+    }
+
+    fn parse_call_arguments(&mut self) -> Vec<Box<dyn Exp>> {
+        let mut args: Vec<Box<dyn Exp>> = Vec::new();
+
+        if self.peek_token_is(token::Token::RParen) {
+            self.next_token();
+            return args;
+        }
+
         self.next_token();
-        exp.right = self.parse_expression(priority);
 
-        Box::new(exp)
+        match self.parse_expression(Priority::LOWEST) {
+            Some(s) => args.push(s),
+            None => {}
+        };
+
+        while self.peek_token_is(token::Token::Comma) {
+            self.next_token();
+            self.next_token();
+            match self.parse_expression(Priority::LOWEST) {
+                Some(s) => args.push(s),
+                None => {}
+            };
+        }
+
+        if !self.expect_peek(token::Token::RParen) {
+            return args;
+        }
+
+        args
     }
 }
 
@@ -770,6 +812,18 @@ mod tests {
                 input: String::from("!(true == true);"),
                 expected: String::from("(!(true == true))"),
             },
+            testcase {
+                input: String::from("a + add(b * c) + d;"),
+                expected: String::from("((a + add((b * c))) + d)"),
+            },
+            testcase {
+                input: String::from("add(a, b, 1, 2 * 3, 4 + 5, add(6, 7 * 8));"),
+                expected: String::from("add(a, b, 1, (2 * 3), (4 + 5), add(6, (7 * 8)))"),
+            },
+            testcase {
+                input: String::from("add(a + b + c * d / f + g;"),
+                expected: String::from("add((((a + b) + ((c * d) / f)) + g))"),
+            },
         ];
 
         for t in tests.iter() {
@@ -1039,6 +1093,68 @@ mod tests {
                 test_literal_expression(&function.parameters[i], ident);
             }
         }
+    }
+
+    #[test]
+    fn test_call_expression_parsing() {
+        let input = String::from(
+            "add(1, 2 * 3, 4 + 5);
+        ",
+        );
+        let mut l = lexer::Lexer::new(input);
+        let mut p = Parser::new(l);
+        let program = p.parse_program().unwrap();
+        check_parser_errors(&p);
+
+        if program.statements.len() != 1 {
+            panic!(
+                "program.statements does not contain {} statements, got={}",
+                1,
+                program.statements.len()
+            );
+        }
+
+        let stmt = match program.statements[0]
+            .as_ref()
+            .as_any()
+            .downcast_ref::<ast::nodes::ExpressionStatement>()
+        {
+            Some(s) => s,
+            None => panic!("program.statements[0] is not a ast::nodes::ExpressionStatement"),
+        };
+
+        let exp = match stmt
+            .expression
+            .as_ref()
+            .unwrap()
+            .as_any()
+            .downcast_ref::<ast::nodes::CallExpression>()
+        {
+            Some(s) => s,
+            None => panic!("stmt.expression is not a ast::nodes::CallExpression"),
+        };
+
+        if !test_identifier(exp.function.as_ref().unwrap(), String::from("add")) {
+            return;
+        }
+
+        if exp.arguments.len() != 3 {
+            panic!("wrong length of arguments. got={}", exp.arguments.len());
+        }
+
+        test_literal_expression(&exp.arguments[0], &1);
+        test_infix_expression(
+            &exp.arguments[1],
+            &Box::new(2),
+            String::from("*"),
+            &Box::new(3),
+        );
+        test_infix_expression(
+            &exp.arguments[2],
+            &Box::new(4),
+            String::from("+"),
+            &Box::new(5),
+        );
     }
 
     fn test_let_statement(s: &Box<dyn ast::traits::Prog>, name: String) {

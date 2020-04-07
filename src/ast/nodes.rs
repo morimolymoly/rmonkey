@@ -519,3 +519,54 @@ impl Expression for FunctionLiteral {
         Box::new((*self).clone())
     }
 }
+
+#[derive(Clone)]
+pub struct CallExpression {
+    pub token: token::Token,
+    pub function: Option<Box<dyn Exp>>,
+    pub arguments: Vec<Box<dyn Exp>>,
+}
+
+impl CallExpression {
+    pub fn new() -> CallExpression {
+        CallExpression {
+            token: token::Token::Illegal,
+            function: None,
+            arguments: Vec::new(),
+        }
+    }
+}
+
+impl Exp for CallExpression {
+    fn box_clone_exp(&self) -> Box<dyn Exp> {
+        Box::new((*self).clone())
+    }
+}
+
+impl Node for CallExpression {
+    fn token_literal(&self) -> String {
+        token::string_from_token(self.token.clone())
+    }
+    fn string(&self) -> String {
+        let mut args: Vec<String> = Vec::new();
+        for a in self.arguments.iter() {
+            args.push(a.string());
+        }
+        let function_string = match &self.function {
+            Some(s) => s.string(),
+            None => String::from(""),
+        };
+
+        format!("{}({})", function_string, args.join(", "))
+    }
+}
+
+impl Expression for CallExpression {
+    fn expresison_node(&self) {}
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+    fn box_clone_expression(&self) -> Box<dyn Expression> {
+        Box::new((*self).clone())
+    }
+}
