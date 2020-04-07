@@ -147,17 +147,66 @@ impl Parser {
                 let mut tok = ast::nodes::Boolean::new();
                 tok.token = self.cur_token.clone();
                 Some(Box::new(tok))
-            },
+            }
             token::Token::LParen => {
                 self.next_token();
                 let exp = self.parse_expression(Priority::LOWEST);
                 if !self.expect_peek(token::Token::RParen) {
-                    return None
+                    return None;
                 }
                 exp
             }
+            token::Token::If => {
+                let mut tok = ast::nodes::IfExpression::new();
+                tok.token = self.cur_token.clone();
+
+                if !self.expect_peek(token::Token::LParen) {
+                    return None;
+                }
+
+                self.next_token();
+                tok.condition = self.parse_expression(Priority::LOWEST);
+
+                if !self.expect_peek(token::Token::RParen) {
+                    return None;
+                }
+
+                if !self.expect_peek(token::Token::LBrace) {
+                    return None;
+                }
+
+                tok.consequence = self.parse_block_statement();
+
+                if self.peek_token_is(token::Token::Else) {
+                    self.next_token();
+
+                    if !self.expect_peek(token::Token::LBrace) {
+                        return None;
+                    }
+
+                    tok.alternative = self.parse_block_statement();
+                }
+
+                Some(Box::new(tok))
+            }
             _ => None,
         }
+    }
+
+    fn parse_block_statement(&mut self) -> Option<ast::nodes::BlockStatement> {
+        let mut block = ast::nodes::BlockStatement::new();
+
+        self.next_token();
+
+        while !self.cur_token_is(token::Token::RBrace) && !self.cur_token_is(token::Token::EOF) {
+            let mut stmt = self.parse_statement();
+            if let Some(s) = stmt {
+                block.statements.push(s.clone());
+            }
+            self.next_token();
+        }
+
+        Some(block)
     }
 
     fn prefix_parse_ops(&mut self) -> Option<Box<dyn ast::traits::Exp>> {
@@ -679,9 +728,143 @@ mod tests {
             let mut l = lexer::Lexer::new(t.input.clone());
             let mut p = Parser::new(l);
             let program = p.parse_program().unwrap();
-            if program.String() != t.expected {
-                panic!("actual:{}, got:{}", t.expected, program.String());
+            check_parser_errors(&p);
+            if program.string() != t.expected {
+                panic!("actual:{}, got:{}", t.expected, program.string());
             }
+        }
+    }
+
+    #[test]
+    fn test_if_expression() {
+        let input = String::from("if(x<y) {x};");
+        let mut l = lexer::Lexer::new(input);
+        let mut p = Parser::new(l);
+        let program = p.parse_program().unwrap();
+        check_parser_errors(&p);
+
+        if program.statements.len() != 1 {
+            panic!(
+                "program.statements does not contain 2 statements, got={}",
+                program.statements.len()
+            );
+        }
+
+        let stmt = match program.statements[0]
+            .as_any()
+            .downcast_ref::<ast::nodes::ExpressionStatement>()
+        {
+            Some(s) => s,
+            None => panic!("program.statements[0] does not ast::nodes::ExpressionStatement"),
+        };
+
+        let exp = match stmt
+            .expression
+            .as_ref()
+            .unwrap()
+            .as_any()
+            .downcast_ref::<ast::nodes::IfExpression>()
+        {
+            Some(s) => s,
+            None => panic!("stmt does not ast::nodes::IfExpression>"),
+        };
+
+        if !test_infix_expression(
+            exp.condition.as_ref().unwrap(),
+            &Box::new(String::from("x")),
+            String::from("<").clone(),
+            &Box::new(String::from("y")),
+        ) {
+            return;
+        }
+
+        if exp.consequence.as_ref().unwrap().statements.len() != 1 {
+            panic!(
+                "exp.consequence.statements does not contain 1 statements, got={}",
+                exp.consequence.as_ref().unwrap().statements.len()
+            )
+        }
+
+        let consequence = match exp.consequence.as_ref().unwrap().statements[0].as_any().downcast_ref::<ast::nodes::ExpressionStatement>() {
+            Some(s) => s,
+            None => panic!("exp.consequence.as_ref().unwrap().statements[0] is not a ast::nodes::ExpressionStatement"),
+        };
+
+        if !test_identifier(consequence.expression.as_ref().unwrap(), String::from("x")) {
+            return;
+        }
+
+        if let Some(_) = exp.alternative {
+            panic!("exp.alternative should be a None");
+        }
+    }
+
+    #[test]
+    fn test_if_else_expression() {
+        let input = String::from("if(x<y) {x} else {y}");
+        let mut l = lexer::Lexer::new(input);
+        let mut p = Parser::new(l);
+        let program = p.parse_program().unwrap();
+        check_parser_errors(&p);
+
+        if program.statements.len() != 1 {
+            panic!(
+                "program.statements does not contain 2 statements, got={}",
+                program.statements.len()
+            );
+        }
+
+        let stmt = match program.statements[0]
+            .as_any()
+            .downcast_ref::<ast::nodes::ExpressionStatement>()
+        {
+            Some(s) => s,
+            None => panic!("program.statements[0] does not ast::nodes::ExpressionStatement"),
+        };
+
+        let exp = match stmt
+            .expression
+            .as_ref()
+            .unwrap()
+            .as_any()
+            .downcast_ref::<ast::nodes::IfExpression>()
+        {
+            Some(s) => s,
+            None => panic!("stmt does not ast::nodes::IfExpression>"),
+        };
+
+        if !test_infix_expression(
+            exp.condition.as_ref().unwrap(),
+            &Box::new(String::from("x")),
+            String::from("<").clone(),
+            &Box::new(String::from("y")),
+        ) {
+            return;
+        }
+
+        if exp.consequence.as_ref().unwrap().statements.len() != 1 {
+            panic!(
+                "exp.consequence.statements does not contain 1 statements, got={}",
+                exp.consequence.as_ref().unwrap().statements.len()
+            )
+        }
+
+        let consequence = match exp.consequence.as_ref().unwrap().statements[0].as_any().downcast_ref::<ast::nodes::ExpressionStatement>() {
+            Some(s) => s,
+            None => panic!("exp.consequence.as_ref().unwrap().statements[0] is not a ast::nodes::ExpressionStatement"),
+        };
+
+        if !test_identifier(consequence.expression.as_ref().unwrap(), String::from("x")) {
+            return;
+        }
+
+        let alternative = match exp.alternative.as_ref().unwrap().statements[0].as_any().downcast_ref::<ast::nodes::ExpressionStatement>() {
+            Some(s) => s,
+            None => panic!("exp.consequence.as_ref().unwrap().statements[0] is not a ast::nodes::ExpressionStatement"),
+        };
+
+        if !test_identifier(alternative.expression.as_ref().unwrap(), String::from("y")) {
+            return;
         }
     }
 
@@ -710,43 +893,53 @@ mod tests {
         false
     }
 
-    fn test_infix_expression(
-        exp: &Box<dyn ast::traits::Prog>,
-        left: &Any,
-        operator: String,
-        right: &Any,
-    ) -> bool {
-        let stmt = match exp
-            .as_any()
-            .downcast_ref::<ast::nodes::ExpressionStatement>()
-        {
-            Some(laststatement) => laststatement,
+    fn test_infix_expression(exp: &Any, left: &Any, operator: String, right: &Any) -> bool {
+        let infix = match exp.downcast_ref::<Box<dyn ast::traits::Prog>>() {
+            Some(s) => match s.as_any().downcast_ref::<ast::nodes::ExpressionStatement>() {
+                Some(laststatement) => {
+                    match laststatement
+                        .expression
+                        .as_ref()
+                        .unwrap()
+                        .as_any()
+                        .downcast_ref::<ast::nodes::InfixExpression>()
+                    {
+                        Some(s) => s,
+                        None => {
+                            return false;
+                        }
+                    }
+                }
+                None => match exp.downcast_ref::<Box<dyn ast::traits::Exp>>() {
+                    Some(s) => {
+                        match s
+                            .as_ref()
+                            .as_any()
+                            .downcast_ref::<ast::nodes::InfixExpression>()
+                        {
+                            Some(s) => s,
+                            None => {
+                                return false;
+                            }
+                        }
+                    }
+                    None => {
+                        return false;
+                    }
+                },
+            },
             None => {
-                println!("stmt is not a ast::nodes::ExpressionStatement!");
                 return false;
             }
         };
-        let exp = match stmt
-            .expression
-            .as_ref()
-            .unwrap()
-            .as_any()
-            .downcast_ref::<ast::nodes::InfixExpression>()
-        {
-            Some(pe) => pe,
-            None => {
-                println!("stmt is not a ast::nodes::InfixExpression!");
-                return false;
-            }
-        };
-        if !test_literal_expression(exp.left.as_ref().unwrap(), left) {
+        if !test_literal_expression(infix.left.as_ref().unwrap(), left) {
             return false;
         }
-        if exp.operator != token::token_from_literal(operator.clone()) {
-            println!("exp.operator is not {}, got={:?}", operator, exp.operator);
+        if infix.operator != token::token_from_literal(operator.clone()) {
+            println!("exp.operator is not {}, got={:?}", operator, infix.operator);
             return false;
         }
-        if !test_literal_expression(exp.right.as_ref().unwrap(), right) {
+        if !test_literal_expression(infix.right.as_ref().unwrap(), right) {
             return false;
         }
 

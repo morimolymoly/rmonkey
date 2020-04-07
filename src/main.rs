@@ -17,10 +17,10 @@ fn main() {
     */
     let l = lexer::Lexer::new(String::from(
         "
-        -15;
+        if(x<y) {x}
 ",
     ));
     let mut p = parser::Parser::new(l);
     let program = p.parse_program();
-    println!("{}", program.unwrap().String());
+    println!("{}", program.unwrap().string());
 }

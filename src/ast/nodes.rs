@@ -12,6 +12,7 @@ Implemented Statement
 * ExpressionStatement
 */
 
+#[derive(Clone)]
 pub struct LetStatement {
     pub token: token::Token,
     pub name: Identifier,
@@ -28,14 +29,18 @@ impl LetStatement {
     }
 }
 
-impl Prog for LetStatement {}
+impl Prog for LetStatement {
+    fn box_clone_prog(&self) -> Box<dyn Prog> {
+        Box::new((*self).clone())
+    }
+}
 
 impl Node for LetStatement {
     fn token_literal(&self) -> String {
         String::from("let")
     }
-    fn String(&self) -> String {
-        format!("let {} = {};", self.name.String(), "")
+    fn string(&self) -> String {
+        format!("let {} = {};", self.name.string(), "")
     }
 }
 
@@ -47,6 +52,7 @@ impl Statement for LetStatement {
     }
 }
 
+#[derive(Clone)]
 pub struct ReturnStatement {
     pub token: token::Token,
     pub return_value: Option<Box<dyn Expression>>,
@@ -61,7 +67,11 @@ impl ReturnStatement {
     }
 }
 
-impl Prog for ReturnStatement {}
+impl Prog for ReturnStatement {
+    fn box_clone_prog(&self) -> Box<dyn Prog> {
+        Box::new((*self).clone())
+    }
+}
 
 impl Statement for ReturnStatement {
     fn statement_node(&self) {}
@@ -75,17 +85,22 @@ impl Node for ReturnStatement {
     fn token_literal(&self) -> String {
         String::from("return")
     }
-    fn String(&self) -> String {
+    fn string(&self) -> String {
         format!("return {}", "")
     }
 }
 
+#[derive(Clone)]
 pub struct ExpressionStatement {
     pub token: token::Token,
     pub expression: Option<Box<dyn Exp>>,
 }
 
-impl Prog for ExpressionStatement {}
+impl Prog for ExpressionStatement {
+    fn box_clone_prog(&self) -> Box<dyn Prog> {
+        Box::new((*self).clone())
+    }
+}
 
 impl ExpressionStatement {
     pub fn new() -> ExpressionStatement {
@@ -108,9 +123,9 @@ impl Node for ExpressionStatement {
     fn token_literal(&self) -> String {
         token::string_from_token(self.token.clone())
     }
-    fn String(&self) -> String {
+    fn string(&self) -> String {
         if let Some(d) = &self.expression {
-            return d.String();
+            return d.string();
         }
         String::from("")
     }
@@ -124,7 +139,7 @@ pub struct PrefixExpression {
 }
 
 impl Exp for PrefixExpression {
-    fn box_clone(&self) -> Box<dyn Exp> {
+    fn box_clone_exp(&self) -> Box<dyn Exp> {
         Box::new((*self).clone())
     }
 }
@@ -143,8 +158,15 @@ impl Node for PrefixExpression {
     fn token_literal(&self) -> String {
         token::string_from_token(self.token.clone())
     }
-    fn String(&self) -> String {
-        format!("({}{})", token::string_from_token(self.token.clone()), self.right.as_ref().unwrap().String())
+    fn string(&self) -> String {
+        if let None = self.right {
+            return String::from("");
+        }
+        format!(
+            "({}{})",
+            token::string_from_token(self.token.clone()),
+            self.right.as_ref().unwrap().string()
+        )
     }
 }
 
@@ -152,6 +174,9 @@ impl Expression for PrefixExpression {
     fn expresison_node(&self) {}
     fn as_any(&self) -> &dyn Any {
         self
+    }
+    fn box_clone_expression(&self) -> Box<dyn Expression> {
+        Box::new((*self).clone())
     }
 }
 
@@ -164,7 +189,7 @@ pub struct InfixExpression {
 }
 
 impl Exp for InfixExpression {
-    fn box_clone(&self) -> Box<dyn Exp> {
+    fn box_clone_exp(&self) -> Box<dyn Exp> {
         Box::new((*self).clone())
     }
 }
@@ -184,12 +209,19 @@ impl Node for InfixExpression {
     fn token_literal(&self) -> String {
         token::string_from_token(self.token.clone())
     }
-    fn String(&self) -> String {
+    fn string(&self) -> String {
+        if let None = self.left {
+            return String::from("");
+        }
+        if let None = self.right {
+            return String::from("");
+        }
+
         format!(
             "({} {} {})",
-            self.left.as_ref().unwrap().String(),
+            self.left.as_ref().unwrap().string(),
             token::string_from_token(self.operator.clone()),
-            self.right.as_ref().unwrap().String()
+            self.right.as_ref().unwrap().string()
         )
     }
 }
@@ -199,6 +231,9 @@ impl Expression for InfixExpression {
     fn as_any(&self) -> &dyn Any {
         self
     }
+    fn box_clone_expression(&self) -> Box<dyn Expression> {
+        Box::new((*self).clone())
+    }
 }
 
 #[derive(Clone)]
@@ -207,7 +242,7 @@ pub struct IntegerLiteral {
 }
 
 impl Exp for IntegerLiteral {
-    fn box_clone(&self) -> Box<dyn Exp> {
+    fn box_clone_exp(&self) -> Box<dyn Exp> {
         Box::new((*self).clone())
     }
 }
@@ -224,7 +259,7 @@ impl Node for IntegerLiteral {
     fn token_literal(&self) -> String {
         String::from("INT")
     }
-    fn String(&self) -> String {
+    fn string(&self) -> String {
         if let token::Token::Int(d) = &self.token {
             return format!("{}", d);
         }
@@ -237,6 +272,9 @@ impl Expression for IntegerLiteral {
     fn as_any(&self) -> &dyn Any {
         self
     }
+    fn box_clone_expression(&self) -> Box<dyn Expression> {
+        Box::new((*self).clone())
+    }
 }
 
 #[derive(Clone)]
@@ -245,7 +283,7 @@ pub struct Identifier {
 }
 
 impl Exp for Identifier {
-    fn box_clone(&self) -> Box<dyn Exp> {
+    fn box_clone_exp(&self) -> Box<dyn Exp> {
         Box::new((*self).clone())
     }
 }
@@ -265,7 +303,7 @@ impl Node for Identifier {
     fn token_literal(&self) -> String {
         String::from("IDENT")
     }
-    fn String(&self) -> String {
+    fn string(&self) -> String {
         if let token::Token::Ident(s) = &self.token {
             return s.clone();
         }
@@ -278,6 +316,9 @@ impl Expression for Identifier {
     fn as_any(&self) -> &dyn Any {
         self
     }
+    fn box_clone_expression(&self) -> Box<dyn Expression> {
+        Box::new((*self).clone())
+    }
 }
 
 #[derive(Clone)]
@@ -286,7 +327,7 @@ pub struct Boolean {
 }
 
 impl Exp for Boolean {
-    fn box_clone(&self) -> Box<dyn Exp> {
+    fn box_clone_exp(&self) -> Box<dyn Exp> {
         Box::new((*self).clone())
     }
 }
@@ -303,7 +344,7 @@ impl Node for Boolean {
     fn token_literal(&self) -> String {
         token::string_from_token(self.token.clone())
     }
-    fn String(&self) -> String {
+    fn string(&self) -> String {
         token::string_from_token(self.token.clone())
     }
 }
@@ -312,5 +353,114 @@ impl Expression for Boolean {
     fn expresison_node(&self) {}
     fn as_any(&self) -> &dyn Any {
         self
+    }
+    fn box_clone_expression(&self) -> Box<dyn Expression> {
+        Box::new((*self).clone())
+    }
+}
+
+#[derive(Clone)]
+pub struct IfExpression {
+    pub token: token::Token,
+    pub condition: Option<Box<dyn Exp>>,
+    pub consequence: Option<BlockStatement>,
+    pub alternative: Option<BlockStatement>,
+}
+
+impl Exp for IfExpression {
+    fn box_clone_exp(&self) -> Box<dyn Exp> {
+        Box::new((*self).clone())
+    }
+}
+
+impl IfExpression {
+    pub fn new() -> IfExpression {
+        IfExpression {
+            token: token::Token::Illegal,
+            condition: None,
+            consequence: None,
+            alternative: None,
+        }
+    }
+}
+
+impl Node for IfExpression {
+    fn token_literal(&self) -> String {
+        token::string_from_token(self.token.clone())
+    }
+    fn string(&self) -> String {
+        if let None = self.consequence {
+            return String::from("");
+        }
+        if let None = self.condition {
+            return String::from("");
+        }
+        let mut string = format!(
+            "if{} {}",
+            self.condition.as_ref().unwrap().string(),
+            self.consequence.as_ref().unwrap().string()
+        );
+        if let None = self.alternative {
+            return string;
+        }
+        format!(
+            "{}else {}",
+            string,
+            self.alternative.as_ref().unwrap().string()
+        )
+    }
+}
+
+impl Expression for IfExpression {
+    fn expresison_node(&self) {}
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+    fn box_clone_expression(&self) -> Box<dyn Expression> {
+        Box::new((*self).clone())
+    }
+}
+
+#[derive(Clone)]
+pub struct BlockStatement {
+    pub token: token::Token,
+    pub statements: Vec<Box<dyn Prog>>,
+}
+
+impl BlockStatement {
+    pub fn new() -> BlockStatement {
+        BlockStatement {
+            token: token::Token::Illegal,
+            statements: Vec::new(),
+        }
+    }
+}
+
+impl Exp for BlockStatement {
+    fn box_clone_exp(&self) -> Box<dyn Exp> {
+        Box::new((*self).clone())
+    }
+}
+
+impl Node for BlockStatement {
+    fn token_literal(&self) -> String {
+        token::string_from_token(self.token.clone())
+    }
+    fn string(&self) -> String {
+        let mut string = String::new();
+        for s in self.statements.iter() {
+            string.push_str(&s.string());
+        }
+        string
+    }
+}
+
+impl Expression for BlockStatement {
+    fn expresison_node(&self) {}
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+    fn box_clone_expression(&self) -> Box<dyn Expression> {
+        Box::new((*self).clone())
     }
 }
