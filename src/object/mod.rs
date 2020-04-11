@@ -53,4 +53,11 @@ impl Object {
             _ => "".to_string(),
         }
     }
+
+    pub fn is_err(&self) -> bool {
+        match self {
+            Object::Error(_) => true,
+            _ => false,
+        }
+    }
 }
