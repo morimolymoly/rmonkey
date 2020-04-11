@@ -7,6 +7,7 @@ use crate::parser;
 use crate::token;
 
 use ast::*;
+use object::environment::Environment;
 
 const TRUE: object::Object = object::Object::Boolean(true);
 const FALSE: object::Object = object::Object::Boolean(false);
@@ -14,29 +15,40 @@ const NULL: object::Object = object::Object::Null;
 
 const ERR_TYPE_MISMATCH: &'static str = "type mismatch:";
 const ERR_UNKNOWN_OPS: &'static str = "unkown operator:";
+const ERR_UNKNOWN_IDENT: &'static str = "unkown identifier:";
 
-pub fn eval(p: Program) -> Option<object::Object> {
-    eval_statements(p.statements)
+fn get_final_val(results: Vec<Option<object::Object>>) -> Option<object::Object> {
+    if results.len() == 0 {
+        return Some(NULL);
+    }
+    results[results.len() - 1].clone()
 }
 
-fn eval_statements(stms: Vec<Box<Statement>>) -> Option<object::Object> {
+pub fn eval(p: Program, env: &mut Environment) -> Option<object::Object> {
+    eval_statements(p.statements, env)
+}
+
+fn eval_statements(stms: Vec<Box<Statement>>, env: &mut Environment) -> Option<object::Object> {
     let mut results = Vec::new();
     for s in stms {
-        let result = eval_statement(*s);
+        let result = eval_statement(*s, env);
         results.push(result.clone());
         match result.unwrap() {
             object::Object::ReturnValue(d) => return Some(*d),
             object::Object::Error(e) => return Some(object::Object::Error(e)),
-            _ => ""
+            _ => "",
         };
     }
-    return results[0].clone();
+    get_final_val(results)
 }
 
-fn eval_block_statements(stms: Vec<Box<Statement>>) -> Option<object::Object> {
+fn eval_block_statements(
+    stms: Vec<Box<Statement>>,
+    env: &mut Environment,
+) -> Option<object::Object> {
     let mut results = Vec::new();
     for s in stms {
-        let result = eval_statement(*s);
+        let result = eval_statement(*s, env);
         results.push(result.clone());
         match result.as_ref().unwrap() {
             object::Object::ReturnValue(_) => return Some(result.unwrap()),
@@ -44,36 +56,59 @@ fn eval_block_statements(stms: Vec<Box<Statement>>) -> Option<object::Object> {
             _ => "",
         };
     }
-    return results[0].clone();
+    get_final_val(results)
 }
 
-fn eval_statement(s: Statement) -> Option<object::Object> {
+fn eval_statement(s: Statement, env: &mut Environment) -> Option<object::Object> {
     match s {
-        Statement::ExpStatement(e) => eval_expression(e),
+        Statement::ExpStatement(e) => eval_expression(e, env),
         Statement::Return(e) => {
-            if let Some(s) = eval_expression(e) {
+            if let Some(s) = eval_expression(e, env) {
                 return Some(object::Object::ReturnValue(Box::new(s)));
             }
             return Some(NULL);
         }
-        _ => Some(NULL),
-    }
-}
-
-fn eval_expression(e: Expression) -> Option<object::Object> {
-    match e {
-        Expression::Literal(d) => eval_literal(d),
-        Expression::Prefix(tok, right) => eval_prefix(tok, right),
-        Expression::Infix(tok, left, right) => eval_infix(tok, left, right),
-        Expression::Block(s) => eval_block_statements(s),
-        Expression::If(condition, consequence, alternative) => {
-            eval_if_expression(condition, consequence, alternative)
+        Statement::Let(ident, value) => {
+            let value = eval_expression(value, env);
+            if value.as_ref().unwrap().is_err() {
+                return value;
+            }
+            match ident {
+                Expression::Ident(s) => {
+                    env.set(s, value.unwrap());
+                }
+                _ => (),
+            };
+            Some(NULL)
         }
+    }
+}
+
+fn eval_expression(e: Expression, env: &mut Environment) -> Option<object::Object> {
+    match e {
+        Expression::Literal(d) => eval_literal(d, env),
+        Expression::Prefix(tok, right) => eval_prefix(tok, right, env),
+        Expression::Infix(tok, left, right) => eval_infix(tok, left, right, env),
+        Expression::Block(s) => eval_block_statements(s, env),
+        Expression::If(condition, consequence, alternative) => {
+            eval_if_expression(condition, consequence, alternative, env)
+        }
+        Expression::Ident(name) => eval_ident(name, env),
         _ => Some(NULL),
     }
 }
 
-fn eval_literal(l: Literal) -> Option<object::Object> {
+fn eval_ident(name: String, env: &mut Environment) -> Option<object::Object> {
+    match env.get(&name) {
+        Some(s) => Some(s),
+        None => Some(object::Object::Error(format!(
+            "{} {}",
+            ERR_UNKNOWN_IDENT, name
+        ))),
+    }
+}
+
+fn eval_literal(l: Literal, env: &mut Environment) -> Option<object::Object> {
     match l {
         Literal::Int(d) => Some(object::Object::Integer(d)),
         Literal::Bool(d) => {
@@ -87,8 +122,12 @@ fn eval_literal(l: Literal) -> Option<object::Object> {
     }
 }
 
-fn eval_prefix(tok: token::Token, right: Box<Expression>) -> Option<object::Object> {
-    let exp = eval_expression(ast::unbox(right)).unwrap();
+fn eval_prefix(
+    tok: token::Token,
+    right: Box<Expression>,
+    env: &mut Environment,
+) -> Option<object::Object> {
+    let exp = eval_expression(ast::unbox(right), env).unwrap();
 
     if exp.is_err() {
         return Some(exp);
@@ -109,23 +148,29 @@ fn eval_infix(
     tok: token::Token,
     left: Box<Expression>,
     right: Box<Expression>,
+    env: &mut Environment,
 ) -> Option<object::Object> {
-    let left = eval_expression(ast::unbox(left)).unwrap();
+    let left = eval_expression(ast::unbox(left), env).unwrap();
     if left.is_err() {
-        return Some(left)
+        return Some(left);
     }
 
-    let right = eval_expression(ast::unbox(right)).unwrap();
+    let right = eval_expression(ast::unbox(right), env).unwrap();
     if right.is_err() {
-        return Some(right)
+        return Some(right);
     }
 
     if left.mytype() == object::INTEGER && right.mytype() == object::INTEGER {
-        return eval_integer_infix_expression(&tok, &left, &right);
+        return eval_integer_infix_expression(&tok, &left, &right, env);
     } else if left.mytype() == object::BOOLEAN && right.mytype() == object::BOOLEAN {
-        return eval_boolean_infix_expression(&tok, &left, &right);
+        return eval_boolean_infix_expression(&tok, &left, &right, env);
     } else {
-        return Some(object::Object::Error(format!("{} {} {}", ERR_TYPE_MISMATCH, left.mytype(), right.mytype())));
+        return Some(object::Object::Error(format!(
+            "{} {} {}",
+            ERR_TYPE_MISMATCH,
+            left.mytype(),
+            right.mytype()
+        )));
     }
 }
 
@@ -133,6 +178,7 @@ fn eval_integer_infix_expression(
     token: &token::Token,
     left: &object::Object,
     right: &object::Object,
+    env: &mut Environment,
 ) -> Option<object::Object> {
     let (left, right) = match left {
         object::Object::Integer(l) => match right {
@@ -151,7 +197,12 @@ fn eval_integer_infix_expression(
         token::Token::LT => return Some(native_bool_to_boolean_object(left < right)),
         token::Token::Equal => return Some(native_bool_to_boolean_object(left == right)),
         token::Token::NotEqual => return Some(native_bool_to_boolean_object(left != right)),
-        _ => Some(object::Object::Error(format!("{} {} {}", ERR_UNKNOWN_OPS, object::INTEGER, object::INTEGER))),
+        _ => Some(object::Object::Error(format!(
+            "{} {} {}",
+            ERR_UNKNOWN_OPS,
+            object::INTEGER,
+            object::INTEGER
+        ))),
     }
 }
 
@@ -159,6 +210,7 @@ fn eval_boolean_infix_expression(
     token: &token::Token,
     left: &object::Object,
     right: &object::Object,
+    env: &mut Environment,
 ) -> Option<object::Object> {
     let (left, right) = match left {
         object::Object::Boolean(l) => match right {
@@ -171,7 +223,12 @@ fn eval_boolean_infix_expression(
     match token {
         token::Token::Equal => return Some(native_bool_to_boolean_object(left == right)),
         token::Token::NotEqual => return Some(native_bool_to_boolean_object(left != right)),
-        _ => Some(object::Object::Error(format!("{} {} {}", ERR_UNKNOWN_OPS, object::BOOLEAN, object::BOOLEAN))),
+        _ => Some(object::Object::Error(format!(
+            "{} {} {}",
+            ERR_UNKNOWN_OPS,
+            object::BOOLEAN,
+            object::BOOLEAN
+        ))),
     }
 }
 
@@ -179,17 +236,18 @@ fn eval_if_expression(
     condition: Box<Expression>,
     consequence: Box<Expression>,
     alternative: Option<Box<Expression>>,
+    env: &mut Environment,
 ) -> Option<object::Object> {
-    let condition = eval_expression(*condition);
+    let condition = eval_expression(*condition, env);
     if condition.as_ref().unwrap().is_err() {
         return condition;
     }
 
     if let Some(condition) = condition {
         if is_truthy(condition) {
-            return eval_expression(*consequence);
+            return eval_expression(*consequence, env);
         } else if let Some(alternative) = alternative {
-            return eval_expression(*alternative);
+            return eval_expression(*alternative, env);
         }
         return Some(NULL);
     }
@@ -229,7 +287,11 @@ fn eval_bang_operator_expression(obj: object::Object) -> Option<object::Object> 
 fn eval_minus_operator_expression(obj: object::Object) -> Option<object::Object> {
     match obj {
         object::Object::Integer(d) => Some(object::Object::Integer(-d)),
-        _ => Some(object::Object::Error(format!("{} {}", ERR_UNKNOWN_OPS, obj.mytype()))),
+        _ => Some(object::Object::Error(format!(
+            "{} {}",
+            ERR_UNKNOWN_OPS,
+            obj.mytype()
+        ))),
     }
 }
 
@@ -552,15 +614,30 @@ mod tests {
         let tests = vec![
             Test {
                 input: String::from("5 + true;"),
-                expected: format!("ERROR: {} {} {}", ERR_TYPE_MISMATCH, object::INTEGER, object::BOOLEAN),
+                expected: format!(
+                    "ERROR: {} {} {}",
+                    ERR_TYPE_MISMATCH,
+                    object::INTEGER,
+                    object::BOOLEAN
+                ),
             },
             Test {
                 input: String::from("5 + true; 5;"),
-                expected: format!("ERROR: {} {} {}", ERR_TYPE_MISMATCH, object::INTEGER, object::BOOLEAN),
+                expected: format!(
+                    "ERROR: {} {} {}",
+                    ERR_TYPE_MISMATCH,
+                    object::INTEGER,
+                    object::BOOLEAN
+                ),
             },
             Test {
                 input: String::from("5; 5 + true;"),
-                expected: format!("ERROR: {} {} {}", ERR_TYPE_MISMATCH, object::INTEGER, object::BOOLEAN),
+                expected: format!(
+                    "ERROR: {} {} {}",
+                    ERR_TYPE_MISMATCH,
+                    object::INTEGER,
+                    object::BOOLEAN
+                ),
             },
             Test {
                 input: String::from("-true;"),
@@ -568,11 +645,21 @@ mod tests {
             },
             Test {
                 input: String::from("true + false;"),
-                expected: format!("ERROR: {} {} {}", ERR_UNKNOWN_OPS, object::BOOLEAN, object::BOOLEAN),
+                expected: format!(
+                    "ERROR: {} {} {}",
+                    ERR_UNKNOWN_OPS,
+                    object::BOOLEAN,
+                    object::BOOLEAN
+                ),
             },
             Test {
                 input: String::from("if(10>1){true + false;};"),
-                expected: format!("ERROR: {} {} {}", ERR_UNKNOWN_OPS, object::BOOLEAN, object::BOOLEAN),
+                expected: format!(
+                    "ERROR: {} {} {}",
+                    ERR_UNKNOWN_OPS,
+                    object::BOOLEAN,
+                    object::BOOLEAN
+                ),
             },
             Test {
                 input: "
@@ -583,13 +670,56 @@ mod tests {
                     return 1;
                 "
                 .to_string(),
-                expected: format!("ERROR: {} {} {}", ERR_UNKNOWN_OPS, object::BOOLEAN, object::BOOLEAN),
+                expected: format!(
+                    "ERROR: {} {} {}",
+                    ERR_UNKNOWN_OPS,
+                    object::BOOLEAN,
+                    object::BOOLEAN
+                ),
+            },
+            Test {
+                input: String::from("foobar;"),
+                expected: format!("ERROR: {} foobar", ERR_UNKNOWN_IDENT),
             },
         ];
 
         for t in tests.iter() {
             let program = eval_program(t.input.clone());
             assert_eq!(program.inspect(), t.expected)
+        }
+    }
+
+    #[test]
+    fn test_let_statements() {
+        #[derive(Debug)]
+        struct Test {
+            input: String,
+            expected: i64,
+        }
+
+        let tests = vec![
+            Test {
+                input: String::from("let a = 5; a;"),
+                expected: 5,
+            },
+            Test {
+                input: String::from("let a = 5 * 5; a;"),
+                expected: 25,
+            },
+            Test {
+                input: String::from("let a = 5; let b = a; b;"),
+                expected: 5,
+            },
+            Test {
+                input: String::from("let a = 5; let b = a; let c = a + b + 5; c;"),
+                expected: 15,
+            },
+        ];
+
+        for t in tests.iter() {
+            let program = eval_program(t.input.clone());
+            println!("jfklsjdlkfjlfk");
+            test_integer_object(program, t.expected);
         }
     }
 
@@ -600,12 +730,14 @@ mod tests {
         if let None = program {
             panic!("parse_program returned None");
         }
-        eval(program.unwrap()).unwrap()
+        let mut env = Environment::new();
+        eval(program.unwrap(), &mut env).unwrap()
     }
 
     fn test_integer_object(obj: object::Object, expected: i64) {
         match obj {
             object::Object::Integer(d) => assert_eq!(d, expected),
+            NULL => panic!("NULL~~~"),
             _ => panic!("result is not a object::Object::Integer"),
         }
     }
@@ -613,6 +745,7 @@ mod tests {
     fn test_boolean_object(obj: object::Object, expected: bool) {
         match obj {
             object::Object::Boolean(d) => assert_eq!(d, expected),
+            NULL => panic!("NULL~~~"),
             _ => panic!("result is not a object::Object::Integer"),
         }
     }

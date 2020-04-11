@@ -1,5 +1,6 @@
 #[allow(dead_code)]
 use std::fmt;
+pub mod environment;
 
 pub const INTEGER: &'static str = "INTEGER";
 pub const BOOLEAN: &'static str = "BOOLEAN";
