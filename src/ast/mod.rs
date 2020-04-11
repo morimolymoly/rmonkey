@@ -3,7 +3,7 @@ use crate::token;
 use std::fmt;
 
 pub struct Program {
-    pub statements: Vec<Statement>,
+    pub statements: Vec<Box<Statement>>,
 }
 
 impl Program {

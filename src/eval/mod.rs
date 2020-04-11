@@ -16,16 +16,40 @@ pub fn eval(p: Program) -> Option<object::Object> {
     eval_statements(p.statements)
 }
 
-fn eval_statements(stms: Vec<Statement>) -> Option<object::Object> {
+fn eval_statements(stms: Vec<Box<Statement>>) -> Option<object::Object> {
+    let mut results = Vec::new();
     for s in stms {
-        return eval_statement(s);
+        let result = eval_statement(*s);
+        results.push(result.clone());
+        if let object::Object::ReturnValue(d) = result.unwrap() {
+            return Some(*d);
+        }
     }
-    return Some(NULL);
+    return results[0].clone();
+}
+
+fn eval_block_statements(stms: Vec<Box<Statement>>) -> Option<object::Object> {
+    let mut results = Vec::new();
+    for s in stms {
+        let result = eval_statement(*s);
+        let result2 = result.clone();
+        results.push(result.clone());
+        if let object::Object::ReturnValue(_) = result2.unwrap() {
+            return Some(result.unwrap());
+        }
+    }
+    return results[0].clone();
 }
 
 fn eval_statement(s: Statement) -> Option<object::Object> {
     match s {
         Statement::ExpStatement(e) => eval_expression(e),
+        Statement::Return(e) => {
+            if let Some(s) = eval_expression(e) {
+                return Some(object::Object::ReturnValue(Box::new(s)));
+            }
+            return Some(NULL);
+        }
         _ => Some(NULL),
     }
 }
@@ -35,6 +59,10 @@ fn eval_expression(e: Expression) -> Option<object::Object> {
         Expression::Literal(d) => eval_literal(d),
         Expression::Prefix(tok, right) => eval_prefix(tok, right),
         Expression::Infix(tok, left, right) => eval_infix(tok, left, right),
+        Expression::Block(s) => eval_block_statements(s),
+        Expression::If(condition, consequence, alternative) => {
+            eval_if_expression(condition, consequence, alternative)
+        }
         _ => Some(NULL),
     }
 }
@@ -129,6 +157,33 @@ fn eval_boolean_infix_expression(
     }
 }
 
+fn eval_if_expression(
+    condition: Box<Expression>,
+    consequence: Box<Expression>,
+    alternative: Option<Box<Expression>>,
+) -> Option<object::Object> {
+    let condition = eval_expression(*condition);
+    if let Some(condition) = condition {
+        if is_truthy(condition) {
+            return eval_expression(*consequence);
+        } else if let Some(alternative) = alternative {
+            return eval_expression(*alternative);
+        }
+        return Some(NULL);
+    }
+    None
+}
+
+fn is_truthy(obj: object::Object) -> bool {
+    match obj {
+        NULL => false,
+        TRUE => true,
+        FALSE => false,
+        object::Object::Integer(0) => false,
+        _ => true,
+    }
+}
+
 fn is_integer_left_and_right(left: &object::Object, right: &object::Object) -> (bool, i64, i64) {
     match left {
         object::Object::Integer(l) => match right {
@@ -140,6 +195,7 @@ fn is_integer_left_and_right(left: &object::Object, right: &object::Object) -> (
 }
 
 fn eval_bang_operator_expression(obj: object::Object) -> Option<object::Object> {
+    let obj = object::Object::Boolean(is_truthy(obj));
     match obj {
         TRUE => Some(FALSE),
         FALSE => Some(TRUE),
@@ -231,7 +287,7 @@ mod tests {
                 expected: 37,
             },
             Test {
-                input: "((5 + 10 * 2 + 15) / 3) * 2;".to_string(),
+                input: "(5 + 10 * 2 + 15 / 3) * 2 + -10;".to_string(),
                 expected: 50,
             },
         ];
@@ -360,13 +416,106 @@ mod tests {
             },
             Test {
                 input: "!!5;".to_string(),
-                expected: false,
+                expected: true,
             },
         ];
 
         for t in tests.iter() {
             let program = eval_program(t.input.clone());
+            println!("unkounko!");
             test_boolean_object(program, t.expected);
+        }
+    }
+
+    #[test]
+    fn test_if_else_expression() {
+        struct Test {
+            input: String,
+            expected: object::Object,
+        }
+
+        let tests = vec![
+            Test {
+                input: "if(true){10};".to_string(),
+                expected: object::Object::Integer(10),
+            },
+            Test {
+                input: "if(false){10};".to_string(),
+                expected: NULL,
+            },
+            Test {
+                input: "if(1){10};".to_string(),
+                expected: object::Object::Integer(10),
+            },
+            Test {
+                input: "if(1<2){10};".to_string(),
+                expected: object::Object::Integer(10),
+            },
+            Test {
+                input: "if(1>2){10};".to_string(),
+                expected: NULL,
+            },
+            Test {
+                input: "if(1>2){10}else{20};".to_string(),
+                expected: object::Object::Integer(20),
+            },
+            Test {
+                input: "if(1<2){10}else{20};".to_string(),
+                expected: object::Object::Integer(10),
+            },
+            Test {
+                input: "if((1000 / 2) + 250 * 2 == 1000){9999};".to_string(),
+                expected: object::Object::Integer(9999),
+            },
+        ];
+
+        for t in tests.iter() {
+            let program = eval_program(t.input.clone());
+            assert_eq!(program, t.expected)
+        }
+    }
+
+    #[test]
+    fn test_return_statement() {
+        #[derive(Debug)]
+        struct Test {
+            input: String,
+            expected: i64,
+        }
+
+        let tests = vec![
+            Test {
+                input: "return 10;".to_string(),
+                expected: 10,
+            },
+            Test {
+                input: "return 10; 9;".to_string(),
+                expected: 10,
+            },
+            Test {
+                input: "return 2*5; 9;".to_string(),
+                expected: 10,
+            },
+            Test {
+                input: "9; return 2 * 5; 9;".to_string(),
+                expected: 10,
+            },
+            Test {
+                input: "
+                if(10>1) {
+                    if(10>1) {
+                        return 10;
+                    }
+                    return 1;
+                "
+                .to_string(),
+                expected: 10,
+            },
+        ];
+
+        for t in tests.iter() {
+            let program = eval_program(t.input.clone());
+            test_integer_object(program, t.expected)
         }
     }
 
@@ -380,28 +529,16 @@ mod tests {
         eval(program.unwrap()).unwrap()
     }
 
-    fn test_integer_object(obj: object::Object, expected: i64) -> bool {
+    fn test_integer_object(obj: object::Object, expected: i64) {
         match obj {
-            object::Object::Integer(d) => {
-                if expected == d {
-                    return true;
-                } else {
-                    return false;
-                }
-            }
+            object::Object::Integer(d) => assert_eq!(d, expected),
             _ => panic!("result is not a object::Object::Integer"),
         }
     }
 
-    fn test_boolean_object(obj: object::Object, expected: bool) -> bool {
+    fn test_boolean_object(obj: object::Object, expected: bool) {
         match obj {
-            object::Object::Boolean(d) => {
-                if expected == d {
-                    return true;
-                } else {
-                    return false;
-                }
-            }
+            object::Object::Boolean(d) => assert_eq!(d, expected),
             _ => panic!("result is not a object::Object::Integer"),
         }
     }

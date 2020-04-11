@@ -25,7 +25,7 @@ pub fn start(in_io: &mut dyn Read, out_io: &mut dyn Write) {
             let mut p = parser::Parser::new(l);
             let program = p.parse_program();
             let evaluated = eval::eval(program.unwrap()).unwrap();
-            println!("`{}", evaluated);
+            println!("`{}", evaluated.inspect());
         } else {
             return;
         }

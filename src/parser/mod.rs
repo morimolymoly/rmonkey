@@ -44,7 +44,7 @@ impl Parser {
         while !self.cur_token_is(token::Token::EOF) {
             let stmt = self.parse_statement();
             if let Some(s) = stmt {
-                p.statements.push(s);
+                p.statements.push(Box::new(s));
             }
             self.next_token();
         }
@@ -434,7 +434,7 @@ mod tests {
                     program.statements.len()
                 );
             }
-            assert_eq!(program.statements[0], test.expected);
+            assert_eq!(*program.statements[0], test.expected);
         }
     }
 
@@ -468,7 +468,7 @@ mod tests {
                     program.statements.len()
                 );
             }
-            assert_eq!(program.statements[0], test.expected);
+            assert_eq!(*program.statements[0], test.expected);
         }
     }
 
@@ -492,7 +492,7 @@ mod tests {
                     program.statements.len()
                 );
             }
-            assert_eq!(program.statements[0], test.expected);
+            assert_eq!(*program.statements[0], test.expected);
         }
     }
 
@@ -516,7 +516,7 @@ mod tests {
                     program.statements.len()
                 );
             }
-            assert_eq!(program.statements[0], test.expected);
+            assert_eq!(*program.statements[0], test.expected);
         }
     }
 
@@ -552,7 +552,7 @@ mod tests {
                     program.statements.len()
                 );
             }
-            assert_eq!(program.statements[0], test.expected);
+            assert_eq!(*program.statements[0], test.expected);
         }
     }
 
@@ -638,7 +638,7 @@ mod tests {
                     program.statements.len()
                 );
             }
-            assert_eq!(program.statements[0], test.expected);
+            assert_eq!(*program.statements[0], test.expected);
         }
     }
 
@@ -784,7 +784,7 @@ mod tests {
                     program.statements.len()
                 );
             }
-            assert_eq!(program.statements[0], test.expected);
+            assert_eq!(*program.statements[0], test.expected);
         }
     }
 
@@ -820,7 +820,7 @@ mod tests {
                     program.statements.len()
                 );
             }
-            assert_eq!(program.statements[0], test.expected);
+            assert_eq!(*program.statements[0], test.expected);
         }
     }
 
@@ -859,7 +859,7 @@ mod tests {
                     program.statements.len()
                 );
             }
-            assert_eq!(program.statements[0], test.expected);
+            assert_eq!(*program.statements[0], test.expected);
         }
     }
     fn get_program(input: String) -> Program {
