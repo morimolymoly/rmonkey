@@ -1,4 +1,5 @@
 #![allow(dead_code)]
+#![allow(unused_imports)]
 
 use crate::ast;
 use crate::lexer;
@@ -94,13 +95,71 @@ fn eval_expression(e: Expression, env: &mut Environment) -> Option<object::Objec
             eval_if_expression(condition, consequence, alternative, env)
         }
         Expression::Ident(name) => eval_ident(name, env),
-        _ => Some(NULL),
+        Expression::Function(args, body) => Some(object::Object::Function(args, body, env.clone())),
+        Expression::Call(function, args) => {
+            let function = eval_expression(*function, env).unwrap();
+            if function.is_err() {
+                return Some(function);
+            }
+            let args = eval_expressions(args, env);
+            if args.len() == 1 && args[0].is_err() {
+                return Some(args[0].clone());
+            }
+            Some(apply_function(function, args))
+        }
     }
 }
 
+fn eval_expressions(
+    expressions: Vec<Box<Expression>>,
+    env: &mut Environment,
+) -> Vec<object::Object> {
+    let mut ret: Vec<object::Object> = Vec::new();
+    for exp in expressions {
+        let evaluated = eval_expression(*exp, env).unwrap();
+        if evaluated.is_err() {
+            ret.push(evaluated);
+            return ret;
+        }
+        ret.push(evaluated);
+    }
+    ret
+}
+
+fn apply_function(function: object::Object, args: Vec<object::Object>) -> object::Object {
+    if let object::Object::Function(_, body, _) = function.clone() {
+        let mut extended_env = extend_function_env(function, args);
+        let evaluated = eval_expression(*body, &mut extended_env);
+        return unwrap_return_value(evaluated.unwrap());
+    }
+    return object::Object::Error(format!("not a function {}", function.mytype()));
+}
+
+fn extend_function_env(function: object::Object, args: Vec<object::Object>) -> Environment {
+    match function {
+        object::Object::Function(params, _, env) => {
+            let mut newenv = Environment::new_enclosed_environment(env);
+            for (i, p) in params.iter().enumerate() {
+                if let ast::Expression::Ident(s) = &**p {
+                    newenv.set(s.clone(), args[i].clone());
+                }
+            }
+            return newenv;
+        }
+        _ => Environment::new(),
+    }
+}
+
+fn unwrap_return_value(obj: object::Object) -> object::Object {
+    if let object::Object::ReturnValue(value) = obj {
+        return *value;
+    }
+    return obj;
+}
+
 fn eval_ident(name: String, env: &mut Environment) -> Option<object::Object> {
-    match env.get(&name) {
-        Some(s) => Some(s),
+    match &env.get(&name) {
+        Some(s) => Some(s.clone()),
         None => Some(object::Object::Error(format!(
             "{} {}",
             ERR_UNKNOWN_IDENT, name
@@ -108,7 +167,7 @@ fn eval_ident(name: String, env: &mut Environment) -> Option<object::Object> {
     }
 }
 
-fn eval_literal(l: Literal, env: &mut Environment) -> Option<object::Object> {
+fn eval_literal(l: Literal, _env: &mut Environment) -> Option<object::Object> {
     match l {
         Literal::Int(d) => Some(object::Object::Integer(d)),
         Literal::Bool(d) => {
@@ -178,7 +237,7 @@ fn eval_integer_infix_expression(
     token: &token::Token,
     left: &object::Object,
     right: &object::Object,
-    env: &mut Environment,
+    _env: &mut Environment,
 ) -> Option<object::Object> {
     let (left, right) = match left {
         object::Object::Integer(l) => match right {
@@ -210,7 +269,7 @@ fn eval_boolean_infix_expression(
     token: &token::Token,
     left: &object::Object,
     right: &object::Object,
-    env: &mut Environment,
+    _env: &mut Environment,
 ) -> Option<object::Object> {
     let (left, right) = match left {
         object::Object::Boolean(l) => match right {
@@ -506,7 +565,6 @@ mod tests {
 
         for t in tests.iter() {
             let program = eval_program(t.input.clone());
-            println!("unkounko!");
             test_boolean_object(program, t.expected);
         }
     }
@@ -718,7 +776,77 @@ mod tests {
 
         for t in tests.iter() {
             let program = eval_program(t.input.clone());
-            println!("jfklsjdlkfjlfk");
+            test_integer_object(program, t.expected);
+        }
+    }
+
+    #[test]
+    fn test_function_object() {
+        #[derive(Debug)]
+        struct Test {
+            input: String,
+            expected: String,
+        }
+
+        let tests = vec![Test {
+            input: String::from("fn(x) {x+2};"),
+            expected: String::from("fn(x){(x + 2)}"),
+        }];
+
+        for t in tests.iter() {
+            let program = eval_program(t.input.clone());
+            assert_eq!(program.inspect(), t.expected);
+        }
+    }
+
+    #[test]
+    fn test_function_application() {
+        #[derive(Debug)]
+        struct Test {
+            input: String,
+            expected: i64,
+        }
+
+        let tests = vec![
+            Test {
+                input: String::from("let identity = 10; let baba = fn(x) {x;}; baba(5);"),
+                expected: 5,
+            },
+            Test {
+                input: String::from("let identity = fn(x) {return x;}; identity(5);"),
+                expected: 5,
+            },
+            Test {
+                input: String::from("let double = fn(x) {x*2;}; double(5);"),
+                expected: 10,
+            },
+            Test {
+                input: String::from("let add = fn(x, y) {x+y;}; add(5, 5);"),
+                expected: 10,
+            },
+            Test {
+                input: String::from("let add = fn(x, y) {x + y}; add(5 + 5, add(5, 5));"),
+                expected: 20,
+            },
+            Test {
+                input: String::from("fn(x){x;}(5);"),
+                expected: 5,
+            },
+            Test {
+                input: String::from(
+                    "
+                    let add = fn(a, b) {a + b};
+                    let sub = fn(a, b) {a - b};
+                    let applyfunc = fn(a, b, func) { func(a, b)};
+                    applyfunc(2, 2, add);
+                ",
+                ),
+                expected: 4,
+            },
+        ];
+
+        for t in tests.iter() {
+            let program = eval_program(t.input.clone());
             test_integer_object(program, t.expected);
         }
     }

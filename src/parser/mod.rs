@@ -795,22 +795,43 @@ mod tests {
             expected: Statement,
         }
 
-        let tests = vec![Test {
-            input: String::from("fn(x,y){x + y};"),
-            expected: Statement::ExpStatement(Expression::Function(
-                vec![
-                    Box::new(Expression::Ident(String::from("x"))),
-                    Box::new(Expression::Ident(String::from("y"))),
-                ],
-                Box::new(Expression::Block(vec![Box::new(Statement::ExpStatement(
-                    Expression::Infix(
-                        token::Token::Plus,
+        let tests = vec![
+            Test {
+                input: String::from("fn(x,y){x + y};"),
+                expected: Statement::ExpStatement(Expression::Function(
+                    vec![
                         Box::new(Expression::Ident(String::from("x"))),
                         Box::new(Expression::Ident(String::from("y"))),
+                    ],
+                    Box::new(Expression::Block(vec![Box::new(Statement::ExpStatement(
+                        Expression::Infix(
+                            token::Token::Plus,
+                            Box::new(Expression::Ident(String::from("x"))),
+                            Box::new(Expression::Ident(String::from("y"))),
+                        ),
+                    ))])),
+                )),
+            },
+            Test {
+                input: String::from("let aaa = fn(x,y){x+y;};"),
+                expected: Statement::Let(
+                    Expression::Ident(String::from("aaa")),
+                    Expression::Function(
+                        vec![
+                            Box::new(Expression::Ident(String::from("x"))),
+                            Box::new(Expression::Ident(String::from("y"))),
+                        ],
+                        Box::new(Expression::Block(vec![Box::new(Statement::ExpStatement(
+                            Expression::Infix(
+                                token::Token::Plus,
+                                Box::new(Expression::Ident(String::from("x"))),
+                                Box::new(Expression::Ident(String::from("y"))),
+                            ),
+                        ))])),
                     ),
-                ))])),
-            )),
-        }];
+                ),
+            },
+        ];
 
         for test in tests.iter() {
             let program = get_program(test.input.clone());

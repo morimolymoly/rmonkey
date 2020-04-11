@@ -1,3 +1,4 @@
+use crate::ast::Expression;
 #[allow(dead_code)]
 use std::fmt;
 pub mod environment;
@@ -7,6 +8,7 @@ pub const BOOLEAN: &'static str = "BOOLEAN";
 pub const RETURN: &'static str = "RETURN";
 pub const ERROR: &'static str = "ERROR";
 pub const NULL: &'static str = "NULL";
+pub const FUNCTION: &'static str = "FUNCTION";
 
 pub trait ObjectTrait {
     fn mytype(&self) -> String;
@@ -20,6 +22,12 @@ pub enum Object {
     Null,
     ReturnValue(Box<Object>),
     Error(String),
+    // args body env
+    Function(
+        Vec<Box<Expression>>,
+        Box<Expression>,
+        environment::Environment,
+    ),
 }
 
 impl std::fmt::Display for Object {
@@ -42,6 +50,13 @@ impl Object {
             Object::Null => format!("null"),
             Object::ReturnValue(d) => format!("{}", d.inspect()),
             Object::Error(d) => format!("{}: {}", ERROR, d),
+            Object::Function(args, body, _) => {
+                let mut arg_strings: Vec<String> = Vec::new();
+                for a in args.iter() {
+                    arg_strings.push(format!("{}", a))
+                }
+                format!("fn({}){{{}}}", arg_strings.join(", "), body)
+            }
         }
     }
     pub fn mytype(&self) -> String {
@@ -51,7 +66,7 @@ impl Object {
             Object::Null => NULL.to_string(),
             Object::ReturnValue(_) => RETURN.to_string(),
             Object::Error(_) => ERROR.to_string(),
-            _ => "".to_string(),
+            Object::Function(_, _, _) => FUNCTION.to_string(),
         }
     }
 
