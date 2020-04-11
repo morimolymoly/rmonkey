@@ -114,7 +114,7 @@ impl Lexer {
             }
         }
 
-        let num: u32 = str1.parse().unwrap();
+        let num: i64 = str1.parse().unwrap();
         token::Token::Int(num)
     }
 
