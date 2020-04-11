@@ -1,10 +1,12 @@
 #[allow(dead_code)]
 use std::fmt;
 
-type ObjectType = String;
+pub const INTEGER: &'static str = "INTEGER";
+pub const BOOLEAN: &'static str = "BOOLEAN";
+
 pub trait ObjectTrait {
-    fn otype(&self) -> ObjectType;
-    fn inspect(&self) -> String;
+    fn mytype(&self) -> String;
+    //fn inspect(&self) -> String;
 }
 
 #[derive(Debug, PartialEq, Clone, Eq)]
@@ -19,17 +21,18 @@ impl std::fmt::Display for Object {
         let string = match self {
             Object::Integer(d) => format!("{}", d),
             Object::Boolean(d) => format!("{}", d),
-            Object::Null=> "NULL".to_string(),
+            Object::Null => "NULL".to_string(),
         };
         write!(f, "{}", string)
     }
 }
 
 impl Object {
-    fn inspect(&self) -> String {
+    /*
+    pub fn inspect(&self) -> String {
         format!("{}", self)
-    }
-    fn mytype(&self) -> String {
+    }*/
+    pub fn mytype(&self) -> String {
         match self {
             Object::Integer(_) => "INTEGER".to_string(),
             Object::Boolean(_) => "BOOLEAN".to_string(),
