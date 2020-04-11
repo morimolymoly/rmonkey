@@ -3,6 +3,9 @@ mod lexer;
 mod parser;
 mod repl;
 mod token;
+mod object;
+mod eval;
+
 use std::io;
 
 fn main() {
