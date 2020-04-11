@@ -3,6 +3,7 @@
 #![allow(dead_code)]
 
 use crate::ast;
+use crate::eval;
 use crate::lexer;
 use crate::parser;
 use crate::token;
@@ -23,7 +24,8 @@ pub fn start(in_io: &mut dyn Read, out_io: &mut dyn Write) {
             let l = lexer::Lexer::new(String::from_utf8(buf[0..n].to_vec()).unwrap());
             let mut p = parser::Parser::new(l);
             let program = p.parse_program();
-            println!("{}", program.unwrap());
+            let evaluated = eval::eval(program.unwrap()).unwrap();
+            println!("`{}", evaluated);
         } else {
             return;
         }

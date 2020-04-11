@@ -1,11 +1,11 @@
 #![allow(dead_code)]
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Eq)]
 pub enum Token {
     Illegal,
     EOF,
     Ident(String),
-    Int(u32),
+    Int(i64),
     Assign,
     Plus,
     Minus,

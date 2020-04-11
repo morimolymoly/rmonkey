@@ -24,9 +24,9 @@ impl fmt::Display for Program {
     }
 }
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Eq)]
 pub enum Literal {
-    Int(u32),
+    Int(i64),
     Bool(bool),
     String(String),
     Unit,
@@ -44,7 +44,7 @@ impl fmt::Display for Literal {
     }
 }
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Eq)]
 pub enum Expression {
     Literal(Literal),
     Block(Vec<Box<Statement>>),
@@ -109,7 +109,7 @@ impl fmt::Display for Expression {
     }
 }
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Eq)]
 pub enum Statement {
     // ident value
     Let(Expression, Expression),
@@ -128,4 +128,8 @@ impl fmt::Display for Statement {
         };
         write!(f, "{}", string)
     }
+}
+
+pub fn unbox<T>(value: Box<T>) -> T {
+    *value
 }

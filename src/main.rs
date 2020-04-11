@@ -1,10 +1,10 @@
 mod ast;
+mod eval;
 mod lexer;
+mod object;
 mod parser;
 mod repl;
 mod token;
-mod object;
-mod eval;
 
 use std::io;
 
