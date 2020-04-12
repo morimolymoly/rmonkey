@@ -25,6 +25,8 @@ null
 ERROR: argument to 'len' not supported, got=INTEGER
 >> len("a", "b");
 ERROR: wrong number of arguments, got=2
+>> stoi("19");
+19
 ```
 
 # Referrence
