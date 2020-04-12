@@ -7,18 +7,18 @@ use crate::object;
 use crate::parser;
 use crate::token;
 
+mod builtin;
+mod errmsg;
+
+use builtin::*;
+use errmsg::*;
+
 use ast::*;
 use object::environment::Environment;
 
 const TRUE: object::Object = object::Object::Boolean(true);
 const FALSE: object::Object = object::Object::Boolean(false);
 const NULL: object::Object = object::Object::Null;
-
-const ERR_TYPE_MISMATCH: &'static str = "type mismatch:";
-const ERR_UNKNOWN_OPS: &'static str = "unkown operator:";
-const ERR_UNKNOWN_IDENT: &'static str = "unkown identifier:";
-const ERR_BUILT_IN_LEN_ARG_SUPPORT: &'static str = "argument to 'len' not supported, got=";
-const ERR_BUILT_IN_LEN_ARG_NUM: &'static str = "wrong number of arguments, got=";
 
 fn get_final_val(results: Vec<Option<object::Object>>) -> Option<object::Object> {
     if results.len() == 0 {
@@ -167,25 +167,8 @@ fn unwrap_return_value(obj: object::Object) -> object::Object {
 
 fn builtin_function(name: String) -> Option<object::Object> {
     match &*name {
-        "len" => Some(object::Object::BuiltinFunc(Some(buildin_len_function))),
+        "len" => Some(object::Object::BuiltinFunc(Some(builtin_len_function))),
         _ => None,
-    }
-}
-
-fn buildin_len_function(arg: Vec<object::Object>) -> object::Object {
-    if arg.len() != 1 {
-        return object::Object::Error(format!("{}{}", ERR_BUILT_IN_LEN_ARG_NUM, arg.len()));
-    }
-    let arg = arg[0].clone();
-    match arg {
-        object::Object::String(s) => return object::Object::Integer(s.len() as i64),
-        _ => {
-            return object::Object::Error(format!(
-                "{}{}",
-                ERR_BUILT_IN_LEN_ARG_SUPPORT,
-                arg.mytype()
-            ))
-        }
     }
 }
 
