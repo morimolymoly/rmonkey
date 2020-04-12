@@ -120,7 +120,6 @@ impl Lexer {
     }
 
     fn read_string(&mut self) -> String {
-        let pos = self.position + 1;
         let mut str1 = "".to_string();
         str1.push(self.ch.unwrap().clone());
         loop {

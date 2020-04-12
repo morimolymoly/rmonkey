@@ -50,7 +50,7 @@ impl Object {
         match self {
             Object::Integer(d) => format!("{}", d),
             Object::Boolean(d) => format!("{}", d),
-            Object::String(s) => format!("{}", s),
+            Object::String(s) => format!("\"{}\"", s),
             Object::Null => format!("null"),
             Object::ReturnValue(d) => format!("{}", d.inspect()),
             Object::Error(d) => format!("{}: {}", ERROR, d),
