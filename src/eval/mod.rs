@@ -177,6 +177,7 @@ fn eval_literal(l: Literal, _env: &mut Environment) -> Option<object::Object> {
                 Some(FALSE)
             }
         }
+        Literal::String(s) => Some(object::Object::String(s)),
         _ => Some(NULL),
     }
 }
@@ -848,6 +849,31 @@ mod tests {
         for t in tests.iter() {
             let program = eval_program(t.input.clone());
             test_integer_object(program, t.expected);
+        }
+    }
+
+    #[test]
+    fn test_string_literal() {
+        #[derive(Debug)]
+        struct Test {
+            input: String,
+            expected: object::Object,
+        }
+
+        let tests = vec![
+            Test {
+                input: String::from("\"Hello, World!\""),
+                expected: object::Object::String("Hello, World!".to_string()),
+            },
+            Test {
+                input: String::from("\"クラブisnot家!\""),
+                expected: object::Object::String("クラブisnot家!".to_string()),
+            },
+        ];
+
+        for t in tests.iter() {
+            let program = eval_program(t.input.clone());
+            assert_eq!(program, t.expected);
         }
     }
 

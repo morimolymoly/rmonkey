@@ -28,6 +28,7 @@ pub enum Token {
     Else,
     Equal,
     NotEqual,
+    String(String),
 }
 
 pub fn token_from_literal(literal: String) -> Token {
@@ -85,6 +86,7 @@ pub fn string_from_token(token: Token) -> String {
         Token::Equal => String::from("=="),
         Token::NotEqual => String::from("!="),
         Token::Int(d) => format!("{}", d),
+        Token::String(s) => s,
         _ => String::from(""),
     }
 }
