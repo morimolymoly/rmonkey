@@ -17,6 +17,14 @@ null
 4
 >> "hello" + ", world!";
 "hello, world!"
+>> len("")
+0
+>> len("hello")
+5
+>> len(1)
+ERROR: argument to 'len' not supported, got=INTEGER
+>> len("a", "b");
+ERROR: wrong number of arguments, got=2
 ```
 
 # Referrence

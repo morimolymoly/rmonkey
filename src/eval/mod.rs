@@ -17,6 +17,8 @@ const NULL: object::Object = object::Object::Null;
 const ERR_TYPE_MISMATCH: &'static str = "type mismatch:";
 const ERR_UNKNOWN_OPS: &'static str = "unkown operator:";
 const ERR_UNKNOWN_IDENT: &'static str = "unkown identifier:";
+const ERR_BUILT_IN_LEN_ARG_SUPPORT: &'static str = "argument to 'len' not supported, got=";
+const ERR_BUILT_IN_LEN_ARG_NUM: &'static str = "wrong number of arguments, got=";
 
 fn get_final_val(results: Vec<Option<object::Object>>) -> Option<object::Object> {
     if results.len() == 0 {
@@ -132,6 +134,12 @@ fn apply_function(function: object::Object, args: Vec<object::Object>) -> object
         let evaluated = eval_expression(*body, &mut extended_env);
         return unwrap_return_value(evaluated.unwrap());
     }
+    if let object::Object::BuiltinFunc(s) = function.clone() {
+        match s {
+            Some(f) => return f(args),
+            None => return object::Object::Error(format!("not a function {}", function.mytype())),
+        }
+    }
     return object::Object::Error(format!("not a function {}", function.mytype()));
 }
 
@@ -157,13 +165,41 @@ fn unwrap_return_value(obj: object::Object) -> object::Object {
     return obj;
 }
 
+fn builtin_function(name: String) -> Option<object::Object> {
+    match &*name {
+        "len" => Some(object::Object::BuiltinFunc(Some(buildin_len_function))),
+        _ => None,
+    }
+}
+
+fn buildin_len_function(arg: Vec<object::Object>) -> object::Object {
+    if arg.len() != 1 {
+        return object::Object::Error(format!("{}{}", ERR_BUILT_IN_LEN_ARG_NUM, arg.len()));
+    }
+    let arg = arg[0].clone();
+    match arg {
+        object::Object::String(s) => return object::Object::Integer(s.len() as i64),
+        _ => {
+            return object::Object::Error(format!(
+                "{}{}",
+                ERR_BUILT_IN_LEN_ARG_SUPPORT,
+                arg.mytype()
+            ))
+        }
+    }
+}
+
 fn eval_ident(name: String, env: &mut Environment) -> Option<object::Object> {
     match &env.get(&name) {
         Some(s) => Some(s.clone()),
-        None => Some(object::Object::Error(format!(
-            "{} {}",
-            ERR_UNKNOWN_IDENT, name
-        ))),
+        None => match builtin_function(name.clone()) {
+            Some(s) => Some(s.clone()),
+            None => Some(object::Object::Error(format!(
+                "{} {}",
+                ERR_UNKNOWN_IDENT,
+                name.clone()
+            ))),
+        },
     }
 }
 
@@ -912,6 +948,46 @@ mod tests {
             Test {
                 input: String::from("\"クラブ\" + \" isnot \" + \"家!\""),
                 expected: object::Object::String("クラブ isnot 家!".to_string()),
+            },
+        ];
+
+        for t in tests.iter() {
+            let program = eval_program(t.input.clone());
+            assert_eq!(program, t.expected);
+        }
+    }
+
+    #[test]
+    fn test_builtint_len() {
+        struct Test {
+            input: String,
+            expected: object::Object,
+        }
+
+        let tests = vec![
+            Test {
+                input: String::from("len(\"\");"),
+                expected: object::Object::Integer(0),
+            },
+            Test {
+                input: String::from("len(\"four\");"),
+                expected: object::Object::Integer(4),
+            },
+            Test {
+                input: String::from("len(\"hello world\");"),
+                expected: object::Object::Integer(11),
+            },
+            Test {
+                input: String::from("len(1);"),
+                expected: object::Object::Error(format!(
+                    "{}{}",
+                    ERR_BUILT_IN_LEN_ARG_SUPPORT,
+                    object::Object::Integer(1).mytype()
+                )),
+            },
+            Test {
+                input: String::from("len(\"one\", \"two\");"),
+                expected: object::Object::Error(format!("{}2", ERR_BUILT_IN_LEN_ARG_NUM)),
             },
         ];
 
