@@ -9,6 +9,7 @@ pub const RETURN: &'static str = "RETURN";
 pub const ERROR: &'static str = "ERROR";
 pub const NULL: &'static str = "NULL";
 pub const FUNCTION: &'static str = "FUNCTION";
+pub const STRING: &'static str = "STRING";
 
 pub trait ObjectTrait {
     fn mytype(&self) -> String;
@@ -28,6 +29,7 @@ pub enum Object {
         Box<Expression>,
         environment::Environment,
     ),
+    String(String),
 }
 
 impl std::fmt::Display for Object {
@@ -36,6 +38,7 @@ impl std::fmt::Display for Object {
             Object::Integer(d) => format!("{}", d),
             Object::Boolean(d) => format!("{}", d),
             Object::Null => "NULL".to_string(),
+            Object::String(s) => format!("{}", s),
             _ => "".to_string(),
         };
         write!(f, "{}", string)
@@ -47,6 +50,7 @@ impl Object {
         match self {
             Object::Integer(d) => format!("{}", d),
             Object::Boolean(d) => format!("{}", d),
+            Object::String(s) => format!("\"{}\"", s),
             Object::Null => format!("null"),
             Object::ReturnValue(d) => format!("{}", d.inspect()),
             Object::Error(d) => format!("{}: {}", ERROR, d),
@@ -63,6 +67,7 @@ impl Object {
         match self {
             Object::Integer(_) => INTEGER.to_string(),
             Object::Boolean(_) => BOOLEAN.to_string(),
+            Object::String(_) => STRING.to_string(),
             Object::Null => NULL.to_string(),
             Object::ReturnValue(_) => RETURN.to_string(),
             Object::Error(_) => ERROR.to_string(),

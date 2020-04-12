@@ -59,6 +59,7 @@ impl Lexer {
             Some('<') => token::Token::LT,
             Some('>') => token::Token::GT,
             None => token::Token::EOF,
+            Some('"') => token::Token::String(self.read_string()),
             Some(c) => {
                 if Lexer::is_letter(c) {
                     self.read_identifier()
@@ -116,6 +117,21 @@ impl Lexer {
 
         let num: i64 = str1.parse().unwrap();
         token::Token::Int(num)
+    }
+
+    fn read_string(&mut self) -> String {
+        let mut str1 = "".to_string();
+        str1.push(self.ch.unwrap().clone());
+        loop {
+            self.read_char();
+            if self.ch.unwrap() == '"' || self.ch.unwrap() == '\0' {
+                self.read_char();
+                break;
+            }
+            str1.push(self.ch.unwrap().clone());
+        }
+
+        str1
     }
 
     fn skip_whitespace(&mut self) {
@@ -189,6 +205,9 @@ mod tests {
 
             true;
             false;
+
+            \"foobar\";
+            \"foo bar\";
         ",
         );
 
@@ -269,6 +288,10 @@ mod tests {
             token::Token::Boolean(true),
             token::Token::Semicolon,
             token::Token::Boolean(false),
+            token::Token::Semicolon,
+            token::Token::String(String::from("foobar")),
+            token::Token::Semicolon,
+            token::Token::String(String::from("foo bar")),
             token::Token::Semicolon,
             token::Token::EOF,
         ];

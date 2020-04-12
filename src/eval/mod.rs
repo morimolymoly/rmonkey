@@ -177,6 +177,7 @@ fn eval_literal(l: Literal, _env: &mut Environment) -> Option<object::Object> {
                 Some(FALSE)
             }
         }
+        Literal::String(s) => Some(object::Object::String(s)),
         _ => Some(NULL),
     }
 }
@@ -223,6 +224,8 @@ fn eval_infix(
         return eval_integer_infix_expression(&tok, &left, &right, env);
     } else if left.mytype() == object::BOOLEAN && right.mytype() == object::BOOLEAN {
         return eval_boolean_infix_expression(&tok, &left, &right, env);
+    } else if left.mytype() == object::STRING && right.mytype() == object::STRING {
+        return eval_string_infix_expression(&tok, &left, &right, env);
     } else {
         return Some(object::Object::Error(format!(
             "{} {} {}",
@@ -289,6 +292,23 @@ fn eval_boolean_infix_expression(
             object::BOOLEAN
         ))),
     }
+}
+
+fn eval_string_infix_expression(
+    token: &token::Token,
+    left: &object::Object,
+    right: &object::Object,
+    _env: &mut Environment,
+) -> Option<object::Object> {
+    if *token != token::Token::Plus {
+        return Some(object::Object::Error(format!(
+            "{} {} {}",
+            ERR_UNKNOWN_OPS,
+            left.inspect(),
+            right.inspect()
+        )));
+    }
+    Some(object::Object::String(format!("{}{}", left, right)))
 }
 
 fn eval_if_expression(
@@ -848,6 +868,56 @@ mod tests {
         for t in tests.iter() {
             let program = eval_program(t.input.clone());
             test_integer_object(program, t.expected);
+        }
+    }
+
+    #[test]
+    fn test_string_literal() {
+        #[derive(Debug)]
+        struct Test {
+            input: String,
+            expected: object::Object,
+        }
+
+        let tests = vec![
+            Test {
+                input: String::from("\"Hello, World!\""),
+                expected: object::Object::String("Hello, World!".to_string()),
+            },
+            Test {
+                input: String::from("\"クラブisnot家!\""),
+                expected: object::Object::String("クラブisnot家!".to_string()),
+            },
+        ];
+
+        for t in tests.iter() {
+            let program = eval_program(t.input.clone());
+            assert_eq!(program, t.expected);
+        }
+    }
+
+    #[test]
+    fn test_string_concat() {
+        #[derive(Debug)]
+        struct Test {
+            input: String,
+            expected: object::Object,
+        }
+
+        let tests = vec![
+            Test {
+                input: String::from("\"Hello\" + \" \" + \"World!\""),
+                expected: object::Object::String("Hello World!".to_string()),
+            },
+            Test {
+                input: String::from("\"クラブ\" + \" isnot \" + \"家!\""),
+                expected: object::Object::String("クラブ isnot 家!".to_string()),
+            },
+        ];
+
+        for t in tests.iter() {
+            let program = eval_program(t.input.clone());
+            assert_eq!(program, t.expected);
         }
     }
 

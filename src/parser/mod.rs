@@ -140,6 +140,7 @@ impl Parser {
         match &self.cur_token {
             token::Token::Ident(d) => Some(Expression::Ident(d.clone())),
             token::Token::Int(d) => Some(Expression::Literal(Literal::Int(*d))),
+            token::Token::String(s) => Some(Expression::Literal(Literal::String(s.clone()))),
             token::Token::Bang => self.prefix_parse_ops(),
             token::Token::Minus => self.prefix_parse_ops(),
             token::Token::Boolean(d) => Some(Expression::Literal(Literal::Bool(d.clone()))),
@@ -883,6 +884,41 @@ mod tests {
             assert_eq!(*program.statements[0], test.expected);
         }
     }
+
+    #[test]
+    fn test_string_literal_expression() {
+        struct Test {
+            input: String,
+            expected: Statement,
+        }
+
+        let tests = vec![
+            Test {
+                input: String::from("\"Hello, World!\";"),
+                expected: Statement::ExpStatement(Expression::Literal(Literal::String(
+                    "Hello, World!".to_string(),
+                ))),
+            },
+            Test {
+                input: String::from("\"クラブisnot家\";"),
+                expected: Statement::ExpStatement(Expression::Literal(Literal::String(
+                    "クラブisnot家".to_string(),
+                ))),
+            },
+        ];
+
+        for test in tests.iter() {
+            let program = get_program(test.input.clone());
+            if program.statements.len() != 1 {
+                panic!(
+                    "program.statements does not contain 1 statements, got={}",
+                    program.statements.len()
+                );
+            }
+            assert_eq!(*program.statements[0], test.expected);
+        }
+    }
+
     fn get_program(input: String) -> Program {
         let l = lexer::Lexer::new(input.clone());
         let mut p = Parser::new(l);
