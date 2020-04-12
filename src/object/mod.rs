@@ -10,11 +10,14 @@ pub const ERROR: &'static str = "ERROR";
 pub const NULL: &'static str = "NULL";
 pub const FUNCTION: &'static str = "FUNCTION";
 pub const STRING: &'static str = "STRING";
+pub const BUILTIN_LEN: &'static str = "BUILTIN_LEN";
 
 pub trait ObjectTrait {
     fn mytype(&self) -> String;
     fn inspect(&self) -> String;
 }
+
+type BuiltInFunction = fn(Vec<Object>) -> Object;
 
 #[derive(Debug, PartialEq, Clone, Eq)]
 pub enum Object {
@@ -30,6 +33,7 @@ pub enum Object {
         environment::Environment,
     ),
     String(String),
+    BuiltinFunc(Option<BuiltInFunction>),
 }
 
 impl std::fmt::Display for Object {
@@ -61,6 +65,7 @@ impl Object {
                 }
                 format!("fn({}){{{}}}", arg_strings.join(", "), body)
             }
+            Object::BuiltinFunc(_) => format!("len()"),
         }
     }
     pub fn mytype(&self) -> String {
@@ -72,6 +77,7 @@ impl Object {
             Object::ReturnValue(_) => RETURN.to_string(),
             Object::Error(_) => ERROR.to_string(),
             Object::Function(_, _, _) => FUNCTION.to_string(),
+            Object::BuiltinFunc(_) => BUILTIN_LEN.to_string(),
         }
     }
 
