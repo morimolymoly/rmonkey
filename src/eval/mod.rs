@@ -168,6 +168,7 @@ fn unwrap_return_value(obj: object::Object) -> object::Object {
 fn builtin_function(name: String) -> Option<object::Object> {
     match &*name {
         "len" => Some(object::Object::BuiltinFunc(Some(builtin_len_function))),
+        "stoi" => Some(object::Object::BuiltinFunc(Some(builtin_stoi_function))),
         _ => None,
     }
 }
@@ -970,7 +971,51 @@ mod tests {
             },
             Test {
                 input: String::from("len(\"one\", \"two\");"),
-                expected: object::Object::Error(format!("{}2", ERR_BUILT_IN_LEN_ARG_NUM)),
+                expected: object::Object::Error(format!("{}2", ERR_BUILT_IN_ARG_NUM)),
+            },
+        ];
+
+        for t in tests.iter() {
+            let program = eval_program(t.input.clone());
+            assert_eq!(program, t.expected);
+        }
+    }
+
+    #[test]
+    fn test_builtint_stoi() {
+        struct Test {
+            input: String,
+            expected: object::Object,
+        }
+
+        let tests = vec![
+            Test {
+                input: String::from("stoi(\"\");"),
+                expected: object::Object::Error("cannot parse integer from empty string".to_string()),
+            },
+            Test {
+                input: String::from("stoi(\"four\");"),
+                expected: object::Object::Error("invalid digit found in string".to_string()),
+            },
+            Test {
+                input: String::from("stoi(\"29\");"),
+                expected: object::Object::Integer(29),
+            },
+            Test {
+                input: String::from("stoi(\"19\");"),
+                expected: object::Object::Integer(19),
+            },
+            Test {
+                input: String::from("stoi(1);"),
+                expected: object::Object::Error(format!(
+                    "{}{}",
+                    ERR_BUILT_IN_LEN_ARG_SUPPORT,
+                    object::Object::Integer(1).mytype()
+                )),
+            },
+            Test {
+                input: String::from("stoi(\"10\", \"20\");"),
+                expected: object::Object::Error(format!("{}2", ERR_BUILT_IN_ARG_NUM)),
             },
         ];
 
