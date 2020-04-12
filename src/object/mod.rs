@@ -65,7 +65,7 @@ impl Object {
                 }
                 format!("fn({}){{{}}}", arg_strings.join(", "), body)
             }
-            Object::BuiltinFunc(_) => format!("len()"),
+            Object::BuiltinFunc(_) => format!("builtin_func"),
         }
     }
     pub fn mytype(&self) -> String {
