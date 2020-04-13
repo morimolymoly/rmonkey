@@ -1,5 +1,5 @@
-use crate::ast::Expression;
 #[allow(dead_code)]
+use crate::ast::Expression;
 use std::fmt;
 pub mod environment;
 
@@ -11,11 +11,6 @@ pub const NULL: &'static str = "NULL";
 pub const FUNCTION: &'static str = "FUNCTION";
 pub const STRING: &'static str = "STRING";
 pub const BUILTIN_LEN: &'static str = "BUILTIN_LEN";
-
-pub trait ObjectTrait {
-    fn mytype(&self) -> String;
-    fn inspect(&self) -> String;
-}
 
 type BuiltInFunction = fn(Vec<Object>) -> Object;
 
