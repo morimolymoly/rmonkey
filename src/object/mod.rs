@@ -10,7 +10,8 @@ pub const ERROR: &'static str = "ERROR";
 pub const NULL: &'static str = "NULL";
 pub const FUNCTION: &'static str = "FUNCTION";
 pub const STRING: &'static str = "STRING";
-pub const BUILTIN_LEN: &'static str = "BUILTIN_LEN";
+pub const BUILTIN_FUNCTION: &'static str = "BUILTIN_FUNCTION";
+pub const ARRAY: &'static str = "ARRAY";
 
 type BuiltInFunction = fn(Vec<Object>) -> Object;
 
@@ -29,6 +30,7 @@ pub enum Object {
     ),
     String(String),
     BuiltinFunc(Option<BuiltInFunction>),
+    Array(Vec<Box<Object>>),
 }
 
 impl std::fmt::Display for Object {
@@ -38,6 +40,7 @@ impl std::fmt::Display for Object {
             Object::Boolean(d) => format!("{}", d),
             Object::Null => "NULL".to_string(),
             Object::String(s) => format!("{}", s),
+            Object::BuiltinFunc(_) => format!("{}", BUILTIN_FUNCTION),
             _ => "".to_string(),
         };
         write!(f, "{}", string)
@@ -60,7 +63,14 @@ impl Object {
                 }
                 format!("fn({}){{{}}}", arg_strings.join(", "), body)
             }
-            Object::BuiltinFunc(_) => format!("builtin_func"),
+            Object::BuiltinFunc(_) => format!("{}", BUILTIN_FUNCTION),
+            Object::Array(args) => {
+                let mut arg_strings: Vec<String> = Vec::new();
+                for a in args.iter() {
+                    arg_strings.push(format!("{}", a))
+                }
+                format!("[{}]", arg_strings.join(", "))
+            }
         }
     }
     pub fn mytype(&self) -> String {
@@ -72,7 +82,8 @@ impl Object {
             Object::ReturnValue(_) => RETURN.to_string(),
             Object::Error(_) => ERROR.to_string(),
             Object::Function(_, _, _) => FUNCTION.to_string(),
-            Object::BuiltinFunc(_) => BUILTIN_LEN.to_string(),
+            Object::BuiltinFunc(_) => BUILTIN_FUNCTION.to_string(),
+            Object::Array(_) => ARRAY.to_string(),
         }
     }
 

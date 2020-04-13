@@ -27,6 +27,20 @@ ERROR: argument to 'len' not supported, got=INTEGER
 ERROR: wrong number of arguments, got=2
 >> stoi("19");
 19
+>> let mya = [10, 20, 30, 40];
+null
+>> mya
+[10, 20, 30, 40]
+>> first(mya)
+10
+>> last(mya)
+40
+>> rest(mya)
+[20, 30, 40]
+>> push(mya, "fjakdfjl")
+[10, 20, 30, 40, fjakdfjl]
+>> mya
+[10, 20, 30, 40]
 ```
 
 # Referrence

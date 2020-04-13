@@ -59,6 +59,8 @@ pub enum Expression {
     // function arguments
     Call(Box<Expression>, Vec<Box<Expression>>),
     Ident(String),
+    Array(Vec<Box<Expression>>),
+    Index(Box<Expression>, Box<Expression>),
 }
 
 impl fmt::Display for Expression {
@@ -104,6 +106,14 @@ impl fmt::Display for Expression {
                 format!("{}({})", function, args.join(", "))
             }
             Expression::Ident(name) => format!("{}", name),
+            Expression::Array(arguments) => {
+                let mut args: Vec<String> = Vec::new();
+                for a in arguments.iter() {
+                    args.push(format!("{}", a));
+                }
+                format!("[{}]", args.join(", "))
+            }
+            Expression::Index(name, idx) => format!("({}[{}])", name, idx),
         };
         write!(f, "{}", string)
     }
