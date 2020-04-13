@@ -109,6 +109,28 @@ fn eval_expression(e: Expression, env: &mut Environment) -> Option<object::Objec
             }
             Some(apply_function(function, args))
         }
+        Expression::Array(args) => {
+            let args = eval_expressions(args, env);
+            if args.len() == 1 && args[0].is_err() {
+                return Some(args[0].clone());
+            }
+            let mut args2: Vec<Box<object::Object>> = Vec::new();
+            for a in args.iter() {
+                args2.push(Box::new(a.clone()))
+            }
+            Some(object::Object::Array(args2))
+        }
+        Expression::Index(exp1, index) => {
+            let exp1 = eval_expression(*exp1, env).unwrap();
+            if exp1.is_err() {
+                return Some(NULL);
+            }
+            let index = eval_expression(*index, env).unwrap();
+            if index.is_err() {
+                return Some(NULL);
+            }
+            Some(eval_index_expression(&exp1, &index))
+        }
     }
 }
 
@@ -351,6 +373,27 @@ fn eval_if_expression(
         return Some(NULL);
     }
     Some(NULL)
+}
+
+fn eval_index_expression(left: &object::Object, index: &object::Object) -> object::Object {
+    if left.mytype() == object::ARRAY && index.mytype() == object::INTEGER {
+        return eval_array_index_expression(left, index);
+    } else {
+        return object::Object::Error(format!("index operator not supported {}", left.mytype()));
+    }
+}
+
+fn eval_array_index_expression(left: &object::Object, index: &object::Object) -> object::Object {
+    if let object::Object::Array(args) = left {
+        if let object::Object::Integer(d) = index {
+            let d = *d as usize;
+            if d > args.len() - 1 {
+                return NULL;
+            }
+            return *args[d].clone();
+        }
+    }
+    NULL
 }
 
 fn is_truthy(obj: object::Object) -> bool {
@@ -991,7 +1034,9 @@ mod tests {
         let tests = vec![
             Test {
                 input: String::from("stoi(\"\");"),
-                expected: object::Object::Error("cannot parse integer from empty string".to_string()),
+                expected: object::Object::Error(
+                    "cannot parse integer from empty string".to_string(),
+                ),
             },
             Test {
                 input: String::from("stoi(\"four\");"),
@@ -1016,6 +1061,89 @@ mod tests {
             Test {
                 input: String::from("stoi(\"10\", \"20\");"),
                 expected: object::Object::Error(format!("{}2", ERR_BUILT_IN_ARG_NUM)),
+            },
+        ];
+
+        for t in tests.iter() {
+            let program = eval_program(t.input.clone());
+            assert_eq!(program, t.expected);
+        }
+    }
+
+    #[test]
+    fn test_array() {
+        struct Test {
+            input: String,
+            expected: object::Object,
+        }
+
+        let tests = vec![Test {
+            input: String::from("[1, 2, 3, 4];"),
+            expected: object::Object::Array(vec![
+                Box::new(object::Object::Integer(1)),
+                Box::new(object::Object::Integer(2)),
+                Box::new(object::Object::Integer(3)),
+                Box::new(object::Object::Integer(4)),
+            ]),
+        }];
+
+        for t in tests.iter() {
+            let program = eval_program(t.input.clone());
+            assert_eq!(program, t.expected);
+        }
+    }
+
+    #[test]
+    fn test_index() {
+        struct Test {
+            input: String,
+            expected: object::Object,
+        }
+
+        let tests = vec![
+            Test {
+                input: String::from("[1, 2, 3, 4][0];"),
+                expected: object::Object::Integer(1),
+            },
+            Test {
+                input: String::from("[1, 2, 3][0];"),
+                expected: object::Object::Integer(1),
+            },
+            Test {
+                input: String::from("[1, 2, 3][1];"),
+                expected: object::Object::Integer(2),
+            },
+            Test {
+                input: String::from("[1, 2, 3][2];"),
+                expected: object::Object::Integer(3),
+            },
+            Test {
+                input: String::from("let i = 0; [1][i];"),
+                expected: object::Object::Integer(1),
+            },
+            Test {
+                input: String::from("[1, 2, 3][1 + 1];"),
+                expected: object::Object::Integer(3),
+            },
+            Test {
+                input: String::from("let myArray = [1,2,3]; myArray[2];"),
+                expected: object::Object::Integer(3),
+            },
+            Test {
+                input: String::from("let myArray = [1,2,3]; myArray[0] + myArray[1] + myArray[2];"),
+                expected: object::Object::Integer(6),
+            },
+            Test {
+                input: String::from("let myArray = [1, 2, 3]; let i = myArray[0]; myArray[i];"),
+                expected: object::Object::Integer(2),
+            },
+            Test {
+                input: String::from("[1, 2, 3][3];"),
+                expected: NULL,
+            },
+            Test {
+                input: String::from("[1, 2, 3][-1];"),
+                expected: NULL,
             },
         ];
 

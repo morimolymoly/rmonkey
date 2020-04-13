@@ -28,12 +28,10 @@ pub fn builtin_stoi_function(arg: Vec<object::Object>) -> object::Object {
 
     let arg = arg[0].clone();
     match arg {
-        object::Object::String(s) => {
-            match s.parse() {
-                Ok(d) => object::Object::Integer(d),
-                Err(e) => object::Object::Error(e.to_string()),
-            }
-        }
+        object::Object::String(s) => match s.parse() {
+            Ok(d) => object::Object::Integer(d),
+            Err(e) => object::Object::Error(e.to_string()),
+        },
         _ => {
             return object::Object::Error(format!(
                 "{}{}",

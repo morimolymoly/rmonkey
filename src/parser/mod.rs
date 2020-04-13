@@ -15,6 +15,7 @@ enum Priority {
     PRODUCT = 5,
     PREFIX = 7,
     CALL = 8,
+    INDEX = 9,
 }
 
 pub struct Parser {
@@ -208,6 +209,9 @@ impl Parser {
 
                 Some(Expression::Function(parameters, Box::new(body)))
             }
+            token::Token::LBracket => Some(Expression::Array(
+                self.parse_expression_arguments(token::Token::RBracket),
+            )),
             _ => None,
         }
     }
@@ -224,8 +228,20 @@ impl Parser {
             token::Token::LParen => {
                 let function = Box::new(left);
                 let _ = self.cur_token.clone();
-                let arguments = self.parse_call_arguments();
+                let arguments = self.parse_expression_arguments(token::Token::RParen);
                 Expression::Call(function, arguments)
+            }
+            token::Token::LBracket => {
+                self.next_token();
+                let exp = self.parse_expression(Priority::LOWEST).unwrap();
+
+                if !self.expect_peek(token::Token::RBracket) {
+                    return Expression::Index(
+                        Box::new(left),
+                        Box::new(Expression::Literal(Literal::Int(0))),
+                    );
+                }
+                Expression::Index(Box::new(left), Box::new(exp))
             }
             _ => {
                 let _ = self.cur_token.clone();
@@ -292,7 +308,7 @@ impl Parser {
         ret
     }
 
-    fn parse_call_arguments(&mut self) -> Vec<Box<Expression>> {
+    fn parse_expression_arguments(&mut self, end_token: token::Token) -> Vec<Box<Expression>> {
         let mut args: Vec<Box<Expression>> = Vec::new();
 
         if self.peek_token_is(token::Token::RParen) {
@@ -316,7 +332,7 @@ impl Parser {
             };
         }
 
-        if !self.expect_peek(token::Token::RParen) {
+        if !self.expect_peek(end_token) {
             return args;
         }
 
@@ -342,6 +358,7 @@ impl Parser {
             token::Token::Slash => Priority::PRODUCT,
             token::Token::Asterisk => Priority::PRODUCT,
             token::Token::LParen => Priority::CALL,
+            token::Token::LBracket => Priority::INDEX,
             _ => Priority::LOWEST,
         }
     }
@@ -747,6 +764,14 @@ mod tests {
                 input: String::from("add(a + b + c * d / f + g);"),
                 expected: String::from("add((((a + b) + ((c * d) / f)) + g))"),
             },
+            Test {
+                input: String::from("add(a * b[2], b[1], 2 * [1, 2][1]);"),
+                expected: String::from("add((a * (b[2])), (b[1]), (2 * ([1, 2][1])))"),
+            },
+            Test {
+                input: String::from("a * [1, 2, 3, 4][b * c] * d;"),
+                expected: String::from("((a * ([1, 2, 3, 4][(b * c)])) * d)"),
+            },
         ];
 
         for test in tests.iter() {
@@ -906,6 +931,61 @@ mod tests {
                 ))),
             },
         ];
+
+        for test in tests.iter() {
+            let program = get_program(test.input.clone());
+            if program.statements.len() != 1 {
+                panic!(
+                    "program.statements does not contain 1 statements, got={}",
+                    program.statements.len()
+                );
+            }
+            assert_eq!(*program.statements[0], test.expected);
+        }
+    }
+
+    #[test]
+    fn test_parsing_array_literals() {
+        struct Test {
+            input: String,
+            expected: Statement,
+        }
+
+        let tests = vec![Test {
+            input: String::from("[1, 2, 3]"),
+            expected: Statement::ExpStatement(Expression::Array(vec![
+                Box::new(Expression::Literal(Literal::Int(1))),
+                Box::new(Expression::Literal(Literal::Int(2))),
+                Box::new(Expression::Literal(Literal::Int(3))),
+            ])),
+        }];
+
+        for test in tests.iter() {
+            let program = get_program(test.input.clone());
+            if program.statements.len() != 1 {
+                panic!(
+                    "program.statements does not contain 1 statements, got={}",
+                    program.statements.len()
+                );
+            }
+            assert_eq!(*program.statements[0], test.expected);
+        }
+    }
+
+    #[test]
+    fn test_parsing_index() {
+        struct Test {
+            input: String,
+            expected: Statement,
+        }
+
+        let tests = vec![Test {
+            input: String::from("array[3];"),
+            expected: Statement::ExpStatement(Expression::Index(
+                Box::new(Expression::Ident(String::from("array"))),
+                Box::new(Expression::Literal(Literal::Int(3))),
+            )),
+        }];
 
         for test in tests.iter() {
             let program = get_program(test.input.clone());

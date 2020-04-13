@@ -29,6 +29,8 @@ pub enum Token {
     Equal,
     NotEqual,
     String(String),
+    LBracket,
+    RBracket,
 }
 
 pub fn token_from_literal(literal: String) -> Token {
@@ -56,6 +58,8 @@ pub fn token_from_literal(literal: String) -> Token {
         "}" => Token::RBrace,
         "==" => Token::Equal,
         "!=" => Token::NotEqual,
+        "[" => Token::RBracket,
+        "]" => Token::LBracket,
         _ => Token::Ident(literal),
     }
 }
@@ -87,6 +91,8 @@ pub fn string_from_token(token: Token) -> String {
         Token::NotEqual => String::from("!="),
         Token::Int(d) => format!("{}", d),
         Token::String(s) => s,
+        Token::LBracket => String::from("["),
+        Token::RBracket => String::from("]"),
         _ => String::from(""),
     }
 }
