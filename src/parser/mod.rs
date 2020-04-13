@@ -311,7 +311,7 @@ impl Parser {
     fn parse_expression_arguments(&mut self, end_token: token::Token) -> Vec<Box<Expression>> {
         let mut args: Vec<Box<Expression>> = Vec::new();
 
-        if self.peek_token_is(token::Token::RParen) {
+        if self.peek_token_is(end_token.clone()) {
             self.next_token();
             return args;
         }
@@ -951,14 +951,20 @@ mod tests {
             expected: Statement,
         }
 
-        let tests = vec![Test {
-            input: String::from("[1, 2, 3]"),
-            expected: Statement::ExpStatement(Expression::Array(vec![
-                Box::new(Expression::Literal(Literal::Int(1))),
-                Box::new(Expression::Literal(Literal::Int(2))),
-                Box::new(Expression::Literal(Literal::Int(3))),
-            ])),
-        }];
+        let tests = vec![
+            Test {
+                input: String::from("[1, 2, 3]"),
+                expected: Statement::ExpStatement(Expression::Array(vec![
+                    Box::new(Expression::Literal(Literal::Int(1))),
+                    Box::new(Expression::Literal(Literal::Int(2))),
+                    Box::new(Expression::Literal(Literal::Int(3))),
+                ])),
+            },
+            Test {
+                input: String::from("[]"),
+                expected: Statement::ExpStatement(Expression::Array(vec![])),
+            },
+        ];
 
         for test in tests.iter() {
             let program = get_program(test.input.clone());

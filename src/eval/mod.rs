@@ -191,6 +191,10 @@ fn builtin_function(name: String) -> Option<object::Object> {
     match &*name {
         "len" => Some(object::Object::BuiltinFunc(Some(builtin_len_function))),
         "stoi" => Some(object::Object::BuiltinFunc(Some(builtin_stoi_function))),
+        "first" => Some(object::Object::BuiltinFunc(Some(builtin_first_function))),
+        "last" => Some(object::Object::BuiltinFunc(Some(builtin_last_function))),
+        "rest" => Some(object::Object::BuiltinFunc(Some(builtin_rest_function))),
+        "push" => Some(object::Object::BuiltinFunc(Some(builtin_push_function))),
         _ => None,
     }
 }
@@ -985,7 +989,7 @@ mod tests {
     }
 
     #[test]
-    fn test_builtint_len() {
+    fn test_builtin_len() {
         struct Test {
             input: String,
             expected: object::Object,
@@ -1016,6 +1020,14 @@ mod tests {
                 input: String::from("len(\"one\", \"two\");"),
                 expected: object::Object::Error(format!("{}2", ERR_BUILT_IN_ARG_NUM)),
             },
+            Test {
+                input: String::from("let array = [10, 20, 30]; len(array);"),
+                expected: object::Object::Integer(3),
+            },
+            Test {
+                input: String::from("len([10]);"),
+                expected: object::Object::Integer(1),
+            },
         ];
 
         for t in tests.iter() {
@@ -1025,7 +1037,7 @@ mod tests {
     }
 
     #[test]
-    fn test_builtint_stoi() {
+    fn test_builtin_stoi() {
         struct Test {
             input: String,
             expected: object::Object,
@@ -1061,6 +1073,70 @@ mod tests {
             Test {
                 input: String::from("stoi(\"10\", \"20\");"),
                 expected: object::Object::Error(format!("{}2", ERR_BUILT_IN_ARG_NUM)),
+            },
+        ];
+
+        for t in tests.iter() {
+            let program = eval_program(t.input.clone());
+            assert_eq!(program, t.expected);
+        }
+    }
+
+    #[test]
+    fn test_builtin_first() {
+        struct Test {
+            input: String,
+            expected: object::Object,
+        }
+
+        let tests = vec![
+            Test {
+                input: String::from("first([]);"),
+                expected: object::Object::Error(ERR_BUILT_IN_ARRAY_INDEX_OUT_OF_RANGE.to_string()),
+            },
+            Test {
+                input: String::from("first([10]);"),
+                expected: object::Object::Integer(10),
+            },
+            Test {
+                input: String::from("first([10, 20, 30]);"),
+                expected: object::Object::Integer(10),
+            },
+            Test {
+                input: String::from("let arr = [10, 20, 30]; first(arr);"),
+                expected: object::Object::Integer(10),
+            },
+        ];
+
+        for t in tests.iter() {
+            let program = eval_program(t.input.clone());
+            assert_eq!(program, t.expected);
+        }
+    }
+
+    #[test]
+    fn test_builtin_last() {
+        struct Test {
+            input: String,
+            expected: object::Object,
+        }
+
+        let tests = vec![
+            Test {
+                input: String::from("last([]);"),
+                expected: object::Object::Error(ERR_BUILT_IN_ARRAY_INDEX_OUT_OF_RANGE.to_string()),
+            },
+            Test {
+                input: String::from("last([10]);"),
+                expected: object::Object::Integer(10),
+            },
+            Test {
+                input: String::from("last([10, 20, 30]);"),
+                expected: object::Object::Integer(30),
+            },
+            Test {
+                input: String::from("let arr = [10, 20, 30]; last(arr);"),
+                expected: object::Object::Integer(30),
             },
         ];
 
@@ -1144,6 +1220,81 @@ mod tests {
             Test {
                 input: String::from("[1, 2, 3][-1];"),
                 expected: NULL,
+            },
+        ];
+
+        for t in tests.iter() {
+            let program = eval_program(t.input.clone());
+            assert_eq!(program, t.expected);
+        }
+    }
+
+    #[test]
+    fn test_builtin_rest() {
+        struct Test {
+            input: String,
+            expected: object::Object,
+        }
+
+        let tests = vec![
+            Test {
+                input: String::from("rest([1, 2, 3, 4]);"),
+                expected: object::Object::Array(vec![
+                    Box::new(object::Object::Integer(2)),
+                    Box::new(object::Object::Integer(3)),
+                    Box::new(object::Object::Integer(4)),
+                ]),
+            },
+            Test {
+                input: String::from("rest([1]);"),
+                expected: object::Object::Array(vec![]),
+            },
+            Test {
+                input: String::from("rest([]);"),
+                expected: object::Object::Array(vec![]),
+            },
+            Test {
+                input: String::from("let mya = [1, 2, 3];rest(mya);mya;"),
+                expected: object::Object::Array(vec![
+                    Box::new(object::Object::Integer(1)),
+                    Box::new(object::Object::Integer(2)),
+                    Box::new(object::Object::Integer(3)),
+                ]),
+            },
+        ];
+
+        for t in tests.iter() {
+            let program = eval_program(t.input.clone());
+            assert_eq!(program, t.expected);
+        }
+    }
+
+    #[test]
+    fn test_builtin_push() {
+        struct Test {
+            input: String,
+            expected: object::Object,
+        }
+
+        let tests = vec![
+            Test {
+                input: String::from("let a = [1,2,3,4]; push(a, 5);"),
+                expected: object::Object::Array(vec![
+                    Box::new(object::Object::Integer(1)),
+                    Box::new(object::Object::Integer(2)),
+                    Box::new(object::Object::Integer(3)),
+                    Box::new(object::Object::Integer(4)),
+                    Box::new(object::Object::Integer(5)),
+                ]),
+            },
+            Test {
+                input: String::from("let a = [1,2,3,4]; push(a, 5);a;"),
+                expected: object::Object::Array(vec![
+                    Box::new(object::Object::Integer(1)),
+                    Box::new(object::Object::Integer(2)),
+                    Box::new(object::Object::Integer(3)),
+                    Box::new(object::Object::Integer(4)),
+                ]),
             },
         ];
 
