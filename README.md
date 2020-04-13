@@ -25,6 +25,10 @@ null
 ERROR: argument to 'len' not supported, got=INTEGER
 >> len("a", "b");
 ERROR: wrong number of arguments, got=2
+>> len([])
+0
+>> len([10, 20, 30])
+3
 >> stoi("19");
 19
 >> let mya = [10, 20, 30, 40];
