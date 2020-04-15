@@ -62,6 +62,7 @@ impl Lexer {
             Some('"') => token::Token::String(self.read_string()),
             Some('[') => token::Token::LBracket,
             Some(']') => token::Token::RBracket,
+            Some(':') => token::Token::Colon,
             Some(c) => {
                 if Lexer::is_letter(c) {
                     self.read_identifier()
@@ -221,6 +222,8 @@ mod tests {
 
 
             [1, 2];
+
+            {\"key\":\"value\"};
         ",
         );
 
@@ -311,6 +314,12 @@ mod tests {
             token::Token::Comma,
             token::Token::Int(2),
             token::Token::RBracket,
+            token::Token::Semicolon,
+            token::Token::LBrace,
+            token::Token::String(String::from("key")),
+            token::Token::Colon,
+            token::Token::String(String::from("value")),
+            token::Token::RBrace,
             token::Token::Semicolon,
             token::Token::EOF,
         ];
