@@ -131,6 +131,7 @@ fn eval_expression(e: Expression, env: &mut Environment) -> Option<object::Objec
             }
             Some(eval_index_expression(&exp1, &index))
         }
+        _ => Some(NULL),
     }
 }
 
@@ -150,7 +151,11 @@ fn eval_expressions(
     ret
 }
 
-fn apply_function(function: object::Object, args: Vec<object::Object>, env: &mut Environment) -> object::Object {
+fn apply_function(
+    function: object::Object,
+    args: Vec<object::Object>,
+    env: &mut Environment,
+) -> object::Object {
     if let object::Object::Function(_, body, _) = function.clone() {
         let mut extended_env = extend_function_env(function, args, env);
         let evaluated = eval_expression(*body, &mut extended_env);
@@ -168,7 +173,11 @@ fn apply_function(function: object::Object, args: Vec<object::Object>, env: &mut
     return object::Object::Error(format!("not a function {}", function.mytype()));
 }
 
-fn extend_function_env(function: object::Object, args: Vec<object::Object>, env: &mut Environment) -> Environment {
+fn extend_function_env(
+    function: object::Object,
+    args: Vec<object::Object>,
+    env: &mut Environment,
+) -> Environment {
     match function {
         object::Object::Function(params, _, _) => {
             let mut newenv = Environment::new_enclosed_environment(env.clone());
@@ -201,7 +210,7 @@ fn builtin_function(name: String, env: &mut Environment) -> Option<object::Objec
         "dbg_env_print" => {
             println!("env: {:?}", env);
             Some(object::Object::DebugFunction)
-        },
+        }
         "dbg_print" => {
             println!("dbg!");
             Some(object::Object::DebugFunction)

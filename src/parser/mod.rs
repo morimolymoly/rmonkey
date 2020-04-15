@@ -212,6 +212,7 @@ impl Parser {
             token::Token::LBracket => Some(Expression::Array(
                 self.parse_expression_arguments(token::Token::RBracket),
             )),
+            token::Token::LBrace => self.parse_hash(),
             _ => None,
         }
     }
@@ -337,6 +338,46 @@ impl Parser {
         }
 
         args
+    }
+
+    fn parse_hash(&mut self) -> Option<Expression> {
+        let mut args: Vec<HashItem> = Vec::new();
+        while !self.peek_token_is(token::Token::RBrace) {
+            self.next_token();
+            let key = match self.parse_expression(Priority::LOWEST) {
+                Some(s) => s,
+                None => Expression::Literal(Literal::Unit),
+            };
+
+            if !self.expect_peek(token::Token::Colon) {
+                return None;
+            }
+
+            self.next_token();
+
+            let value = match self.parse_expression(Priority::LOWEST) {
+                Some(s) => s,
+                None => Expression::Literal(Literal::Unit),
+            };
+
+            if !self.expect_peek(token::Token::Comma) && !self.peek_token_is(token::Token::RBrace) {
+                return None;
+            }
+
+            if let Expression::Literal(Literal::Unit) = key {
+                continue;
+            }
+            if let Expression::Literal(Literal::Unit) = value {
+                continue;
+            }
+
+            let hashitem = HashItem { key, value };
+            args.push(hashitem);
+        }
+        if !self.expect_peek(token::Token::RBrace) {
+            return None;
+        }
+        Some(Expression::Hashmap(args))
     }
 
     fn peek_priority(&self) -> Priority {
@@ -992,6 +1033,49 @@ mod tests {
                 Box::new(Expression::Literal(Literal::Int(3))),
             )),
         }];
+
+        for test in tests.iter() {
+            let program = get_program(test.input.clone());
+            if program.statements.len() != 1 {
+                panic!(
+                    "program.statements does not contain 1 statements, got={}",
+                    program.statements.len()
+                );
+            }
+            assert_eq!(*program.statements[0], test.expected);
+        }
+    }
+
+    #[test]
+    fn test_parsing_hash() {
+        struct Test {
+            input: String,
+            expected: Statement,
+        }
+
+        let tests = vec![
+            Test {
+                input: String::from("{};"),
+                expected: Statement::ExpStatement(Expression::Hashmap(Vec::new())),
+            },
+            Test {
+                input: String::from("{\"one\": 1, \"two\": 2, \"three\": 3};"),
+                expected: Statement::ExpStatement(Expression::Hashmap(vec![
+                    HashItem {
+                        key: Expression::Literal(Literal::String(String::from("one"))),
+                        value: Expression::Literal(Literal::Int(1)),
+                    },
+                    HashItem {
+                        key: Expression::Literal(Literal::String(String::from("two"))),
+                        value: Expression::Literal(Literal::Int(2)),
+                    },
+                    HashItem {
+                        key: Expression::Literal(Literal::String(String::from("three"))),
+                        value: Expression::Literal(Literal::Int(3)),
+                    },
+                ])),
+            },
+        ];
 
         for test in tests.iter() {
             let program = get_program(test.input.clone());
