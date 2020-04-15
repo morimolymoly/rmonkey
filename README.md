@@ -45,6 +45,13 @@ null
 [10, 20, 30, 40, fjakdfjl]
 >> mya
 [10, 20, 30, 40]
+>> let aaa = fn(x){if(x>0){dbg_print();aaa(x-1)}else{0}};
+null
+>> aaa(3);
+dbg!
+dbg!
+dbg!
+0
 ```
 
 # Referrence
