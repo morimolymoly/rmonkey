@@ -162,6 +162,9 @@ fn apply_function(function: object::Object, args: Vec<object::Object>, env: &mut
             None => return object::Object::Error(format!("not a function {}", function.mytype())),
         }
     }
+    if let object::Object::DebugFunction = function.clone() {
+        return NULL;
+    }
     return object::Object::Error(format!("not a function {}", function.mytype()));
 }
 
@@ -195,9 +198,13 @@ fn builtin_function(name: String, env: &mut Environment) -> Option<object::Objec
         "last" => Some(object::Object::BuiltinFunc(Some(builtin_last_function))),
         "rest" => Some(object::Object::BuiltinFunc(Some(builtin_rest_function))),
         "push" => Some(object::Object::BuiltinFunc(Some(builtin_push_function))),
-        "environment_debug" => {
+        "dbg_env_print" => {
             println!("env: {:?}", env);
-            Some(NULL)
+            Some(object::Object::DebugFunction)
+        },
+        "dbg_print" => {
+            println!("dbg!");
+            Some(object::Object::DebugFunction)
         }
         _ => None,
     }
