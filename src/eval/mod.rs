@@ -107,7 +107,7 @@ fn eval_expression(e: Expression, env: &mut Environment) -> Option<object::Objec
             if args.len() == 1 && args[0].is_err() {
                 return Some(args[0].clone());
             }
-            Some(apply_function(function, args))
+            Some(apply_function(function, args, env))
         }
         Expression::Array(args) => {
             let args = eval_expressions(args, env);
@@ -150,9 +150,9 @@ fn eval_expressions(
     ret
 }
 
-fn apply_function(function: object::Object, args: Vec<object::Object>) -> object::Object {
+fn apply_function(function: object::Object, args: Vec<object::Object>, env: &mut Environment) -> object::Object {
     if let object::Object::Function(_, body, _) = function.clone() {
-        let mut extended_env = extend_function_env(function, args);
+        let mut extended_env = extend_function_env(function, args, env);
         let evaluated = eval_expression(*body, &mut extended_env);
         return unwrap_return_value(evaluated.unwrap());
     }
@@ -165,10 +165,10 @@ fn apply_function(function: object::Object, args: Vec<object::Object>) -> object
     return object::Object::Error(format!("not a function {}", function.mytype()));
 }
 
-fn extend_function_env(function: object::Object, args: Vec<object::Object>) -> Environment {
+fn extend_function_env(function: object::Object, args: Vec<object::Object>, env: &mut Environment) -> Environment {
     match function {
-        object::Object::Function(params, _, env) => {
-            let mut newenv = Environment::new_enclosed_environment(env);
+        object::Object::Function(params, _, _) => {
+            let mut newenv = Environment::new_enclosed_environment(env.clone());
             for (i, p) in params.iter().enumerate() {
                 if let ast::Expression::Ident(s) = &**p {
                     newenv.set(s.clone(), args[i].clone());
@@ -187,7 +187,7 @@ fn unwrap_return_value(obj: object::Object) -> object::Object {
     return obj;
 }
 
-fn builtin_function(name: String) -> Option<object::Object> {
+fn builtin_function(name: String, env: &mut Environment) -> Option<object::Object> {
     match &*name {
         "len" => Some(object::Object::BuiltinFunc(Some(builtin_len_function))),
         "stoi" => Some(object::Object::BuiltinFunc(Some(builtin_stoi_function))),
@@ -195,6 +195,10 @@ fn builtin_function(name: String) -> Option<object::Object> {
         "last" => Some(object::Object::BuiltinFunc(Some(builtin_last_function))),
         "rest" => Some(object::Object::BuiltinFunc(Some(builtin_rest_function))),
         "push" => Some(object::Object::BuiltinFunc(Some(builtin_push_function))),
+        "environment_debug" => {
+            println!("env: {:?}", env);
+            Some(NULL)
+        }
         _ => None,
     }
 }
@@ -202,7 +206,7 @@ fn builtin_function(name: String) -> Option<object::Object> {
 fn eval_ident(name: String, env: &mut Environment) -> Option<object::Object> {
     match &env.get(&name) {
         Some(s) => Some(s.clone()),
-        None => match builtin_function(name.clone()) {
+        None => match builtin_function(name.clone(), env) {
             Some(s) => Some(s.clone()),
             None => Some(object::Object::Error(format!(
                 "{} {}",

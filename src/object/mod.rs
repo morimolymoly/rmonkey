@@ -12,6 +12,7 @@ pub const FUNCTION: &'static str = "FUNCTION";
 pub const STRING: &'static str = "STRING";
 pub const BUILTIN_FUNCTION: &'static str = "BUILTIN_FUNCTION";
 pub const ARRAY: &'static str = "ARRAY";
+pub const DEBUG_FUNCTION: &'static str = "DEBUG_FUNCTION";
 
 type BuiltInFunction = fn(Vec<Object>) -> Object;
 
@@ -31,6 +32,7 @@ pub enum Object {
     String(String),
     BuiltinFunc(Option<BuiltInFunction>),
     Array(Vec<Box<Object>>),
+    DebugFunction(environment::Environment),
 }
 
 impl std::fmt::Display for Object {
@@ -71,6 +73,7 @@ impl Object {
                 }
                 format!("[{}]", arg_strings.join(", "))
             }
+            Object::DebugFunction(_) => format!("debug function"),
         }
     }
     pub fn mytype(&self) -> String {
@@ -84,6 +87,7 @@ impl Object {
             Object::Function(_, _, _) => FUNCTION.to_string(),
             Object::BuiltinFunc(_) => BUILTIN_FUNCTION.to_string(),
             Object::Array(_) => ARRAY.to_string(),
+            Object::DebugFunction(_) => DEBUG_FUNCTION.to_string(),
         }
     }
 
