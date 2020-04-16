@@ -314,19 +314,33 @@ fn eval_infix(
         return Some(right);
     }
 
-    if left.mytype() == object::INTEGER && right.mytype() == object::INTEGER {
-        return eval_integer_infix_expression(&tok, &left, &right, env);
-    } else if left.mytype() == object::BOOLEAN && right.mytype() == object::BOOLEAN {
-        return eval_boolean_infix_expression(&tok, &left, &right, env);
-    } else if left.mytype() == object::STRING && right.mytype() == object::STRING {
-        return eval_string_infix_expression(&tok, &left, &right, env);
-    } else {
-        return Some(object::Object::Error(format!(
-            "{} {} {}",
-            ERR_TYPE_MISMATCH,
-            left.mytype(),
-            right.mytype()
-        )));
+    let err_obj = Some(object::Object::Error(format!(
+        "{} {} {}",
+        ERR_TYPE_MISMATCH,
+        left.mytype(),
+        right.mytype()
+    )));
+
+    match left {
+        object::Object::Integer(_) => {
+            if let object::Object::String(_) = right {
+                return eval_string_infix_expression(&tok, &left, &right, env);
+            }
+            return err_obj;
+        }
+        object::Object::Boolean(_) => {
+            if let object::Object::String(_) = right {
+                return eval_string_infix_expression(&tok, &left, &right, env);
+            }
+            return err_obj;
+        }
+        object::Object::String(_) => {
+            if let object::Object::String(_) = right {
+                return eval_string_infix_expression(&tok, &left, &right, env);
+            }
+            return err_obj;
+        }
+        _ => return err_obj,
     }
 }
 
@@ -454,7 +468,7 @@ fn eval_index_expression(left: &object::Object, index: &object::Object) -> objec
                 Some(s) => return s.clone(),
                 None => NULL,
             }
-        },
+        }
         _ => NULL,
     }
 }
