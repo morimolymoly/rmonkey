@@ -45,6 +45,19 @@ impl fmt::Display for Literal {
 }
 
 #[derive(Debug, PartialEq, Clone, Eq)]
+pub struct HashItem {
+    pub value: Expression,
+    pub key: Expression,
+}
+
+impl fmt::Display for HashItem {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let string = format!("{}:{}", self.value, self.key);
+        write!(f, "{}", string)
+    }
+}
+
+#[derive(Debug, PartialEq, Clone, Eq)]
 pub enum Expression {
     Literal(Literal),
     Block(Vec<Box<Statement>>),
@@ -61,6 +74,7 @@ pub enum Expression {
     Ident(String),
     Array(Vec<Box<Expression>>),
     Index(Box<Expression>, Box<Expression>),
+    Hashmap(Vec<HashItem>),
 }
 
 impl fmt::Display for Expression {
@@ -114,6 +128,13 @@ impl fmt::Display for Expression {
                 format!("[{}]", args.join(", "))
             }
             Expression::Index(name, idx) => format!("({}[{}])", name, idx),
+            Expression::Hashmap(arguments) => {
+                let mut args: Vec<String> = Vec::new();
+                for a in arguments.iter() {
+                    args.push(format!("{}", a));
+                }
+                format!("{{{}}}", args.join(", "))
+            }
         };
         write!(f, "{}", string)
     }

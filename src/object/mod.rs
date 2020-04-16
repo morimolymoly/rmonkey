@@ -2,6 +2,7 @@
 use crate::ast::Expression;
 use std::fmt;
 pub mod environment;
+use std::collections::HashMap;
 
 pub const INTEGER: &'static str = "INTEGER";
 pub const BOOLEAN: &'static str = "BOOLEAN";
@@ -13,6 +14,7 @@ pub const STRING: &'static str = "STRING";
 pub const BUILTIN_FUNCTION: &'static str = "BUILTIN_FUNCTION";
 pub const ARRAY: &'static str = "ARRAY";
 pub const DEBUG_FUNCTION: &'static str = "DEBUG_FUNCTION";
+pub const HASH: &'static str = "HASH";
 
 type BuiltInFunction = fn(Vec<Object>) -> Object;
 
@@ -33,6 +35,7 @@ pub enum Object {
     BuiltinFunc(Option<BuiltInFunction>),
     Array(Vec<Box<Object>>),
     DebugFunction,
+    Hash(HashType),
 }
 
 impl std::fmt::Display for Object {
@@ -74,6 +77,7 @@ impl Object {
                 format!("[{}]", arg_strings.join(", "))
             }
             Object::DebugFunction => format!("debug function"),
+            Object::Hash(hash) => format!("{:?}", hash),
         }
     }
     pub fn mytype(&self) -> String {
@@ -88,6 +92,7 @@ impl Object {
             Object::BuiltinFunc(_) => BUILTIN_FUNCTION.to_string(),
             Object::Array(_) => ARRAY.to_string(),
             Object::DebugFunction => DEBUG_FUNCTION.to_string(),
+            Object::Hash(_) => HASH.to_string(),
         }
     }
 
@@ -97,4 +102,16 @@ impl Object {
             _ => false,
         }
     }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum HashKey {
+    Integer(i64),
+    String(String),
+    Boolean(bool),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct HashType {
+    pub pairs: HashMap<HashKey, Object>,
 }
