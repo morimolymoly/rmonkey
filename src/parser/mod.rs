@@ -119,7 +119,10 @@ impl Parser {
     }
 
     fn parse_expression_statement(&mut self) -> Option<Statement> {
-        let exp = self.parse_expression(Priority::LOWEST).unwrap();
+        let exp = match  self.parse_expression(Priority::LOWEST) {
+            Some(s) => s,
+            None => return None,
+        };
 
         if self.peek_token_is(token::Token::Semicolon) {
             self.next_token();
@@ -129,7 +132,11 @@ impl Parser {
     }
 
     fn parse_expression(&mut self, p: Priority) -> Option<Expression> {
-        let mut leftexp = self.prefix_parse().unwrap();
+        let mut leftexp = match self.prefix_parse() {
+            Some(s) => s,
+            None => return None,
+        };
+
         while !self.peek_token_is(token::Token::Semicolon) && p < self.peek_priority() {
             self.next_token();
             leftexp = self.parse_infix_expression(leftexp.clone());
