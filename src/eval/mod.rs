@@ -131,7 +131,7 @@ fn eval_expression(e: Expression, env: &mut Environment) -> Option<object::Objec
                 return Some(NULL);
             }
             Some(eval_index_expression(&exp1, &index))
-        },
+        }
         Expression::Hashmap(args) => {
             let hash = eval_hash_args(args, env);
             Some(object::Object::Hash(hash))
@@ -151,7 +151,7 @@ fn eval_hash_args(args: Vec<ast::HashItem>, env: &mut Environment) -> object::Ha
             object::Object::String(s) => Some(object::HashKey::String(s)),
             object::Object::Boolean(b) => Some(object::HashKey::Boolean(b)),
             object::Object::Integer(d) => Some(object::HashKey::Integer(d)),
-            _ => None
+            _ => None,
         };
         if let Some(k) = key {
             if let Some(v) = value {
@@ -428,10 +428,34 @@ fn eval_if_expression(
 }
 
 fn eval_index_expression(left: &object::Object, index: &object::Object) -> object::Object {
-    if left.mytype() == object::ARRAY && index.mytype() == object::INTEGER {
-        return eval_array_index_expression(left, index);
-    } else {
-        return object::Object::Error(format!("index operator not supported {}", left.mytype()));
+    match left {
+        object::Object::Array(_) => match index {
+            object::Object::Integer(_) => return eval_array_index_expression(left, index),
+            _ => {
+                return object::Object::Error(format!(
+                    "index operator not supported {}",
+                    left.mytype()
+                ))
+            }
+        },
+        object::Object::Hash(hashmap) => {
+            let key = match index {
+                object::Object::Integer(d) => object::HashKey::Integer(*d),
+                object::Object::Boolean(d) => object::HashKey::Boolean(*d),
+                object::Object::String(s) => object::HashKey::String(s.clone()),
+                _ => {
+                    return object::Object::Error(format!(
+                        "index operator not supported {}",
+                        left.mytype()
+                    ))
+                }
+            };
+            match hashmap.pairs.get(&key) {
+                Some(s) => return s.clone(),
+                None => NULL,
+            }
+        },
+        _ => NULL,
     }
 }
 
@@ -1269,6 +1293,50 @@ mod tests {
                 input: String::from("[1, 2, 3][-1];"),
                 expected: NULL,
             },
+            Test {
+                input: String::from(
+                    "let aaa = {\"one\": 1, \"two\": 2, \"three\": 3}; aaa[\"one\"];",
+                ),
+                expected: object::Object::Integer(1),
+            },
+            Test {
+                input: String::from(
+                    "let aaa = {\"one\": 1, \"two\": 2, \"three\": 3}; aaa[\"two\"];",
+                ),
+                expected: object::Object::Integer(2),
+            },
+            Test {
+                input: String::from(
+                    "let aaa = {\"one\": 1, \"two\": 2, \"three\": 3}; aaa[\"three\"];",
+                ),
+                expected: object::Object::Integer(3),
+            },
+            Test {
+                input: String::from(
+                    "let aaa = {\"one\": 1, \"two\": 2, \"three\": 3}; aaa[\"four\"];",
+                ),
+                expected: NULL,
+            },
+            Test {
+                input: String::from("let aaa = {\"one\": 1, \"two\": 2, 3: 3}; aaa[3];"),
+                expected: object::Object::Integer(3),
+            },
+            Test {
+                input: String::from("let aaa = {\"one\": 1, \"two\": 2, true: 3}; aaa[true];"),
+                expected: object::Object::Integer(3),
+            },
+            Test {
+                input: String::from("let aaa = {\"one\": 1, \"two\": 2, false: 3}; aaa[false];"),
+                expected: object::Object::Integer(3),
+            },
+            Test {
+                input: String::from("let aaa = {\"one\": 1, \"two\": 2, true: 3}; aaa[1==1];"),
+                expected: object::Object::Integer(3),
+            },
+            Test {
+                input: String::from("let aaa = {\"one\": 1, \"two\": 2, true: 3}; aaa[1!=1];"),
+                expected: NULL,
+            },
         ];
 
         for t in tests.iter() {
@@ -1359,28 +1427,43 @@ mod tests {
             expected: object::Object,
         }
 
-        let tests = vec![Test {
-            input: String::from("{\"one\": 1, \"two\": 2, \"three\": 3};"),
-            expected: object::Object::Hash(object::HashType {
-                pairs: [
-                    (
-                        object::HashKey::String(String::from("one")),
-                        object::Object::Integer(1),
-                    ),
-                    (
-                        object::HashKey::String(String::from("two")),
-                        object::Object::Integer(2),
-                    ),
-                    (
-                        object::HashKey::String(String::from("three")),
-                        object::Object::Integer(3),
-                    ),
-                ]
-                .iter()
-                .cloned()
-                .collect::<HashMap<object::HashKey, object::Object>>(),
-            }),
-        }];
+        let tests = vec![
+            Test {
+                input: String::from("{\"one\": 1, \"two\": 2, \"three\": 3};"),
+                expected: object::Object::Hash(object::HashType {
+                    pairs: [
+                        (
+                            object::HashKey::String(String::from("one")),
+                            object::Object::Integer(1),
+                        ),
+                        (
+                            object::HashKey::String(String::from("two")),
+                            object::Object::Integer(2),
+                        ),
+                        (
+                            object::HashKey::String(String::from("three")),
+                            object::Object::Integer(3),
+                        ),
+                    ]
+                    .iter()
+                    .cloned()
+                    .collect::<HashMap<object::HashKey, object::Object>>(),
+                }),
+            },
+            Test {
+                input: String::from("{true: 1, false: 2, 1: 3};"),
+                expected: object::Object::Hash(object::HashType {
+                    pairs: [
+                        (object::HashKey::Boolean(true), object::Object::Integer(1)),
+                        (object::HashKey::Boolean(false), object::Object::Integer(2)),
+                        (object::HashKey::Integer(1), object::Object::Integer(3)),
+                    ]
+                    .iter()
+                    .cloned()
+                    .collect::<HashMap<object::HashKey, object::Object>>(),
+                }),
+            },
+        ];
 
         for t in tests.iter() {
             let program = eval_program(t.input.clone());

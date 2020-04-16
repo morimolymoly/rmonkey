@@ -52,6 +52,18 @@ dbg!
 dbg!
 dbg!
 0
+>> let hash = {true: 1, "test": 2, false: 3, 4: 4};   
+null
+>> hash[true]
+1
+>> hash[false]
+3
+>> hash[1==1]
+1
+>> hash["test"]
+2
+>> hash[4]
+4
 ```
 
 # Referrence
