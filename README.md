@@ -67,8 +67,8 @@ null
 ```
 
 # Referrence
-https://interpreterbook.com/
-https://github.com/kogai/monkey
+* https://interpreterbook.com/
+* https://github.com/kogai/monkey
 
 # GO-like super dirty code branch is here!
 [branch](https://github.com/morimolymoly/rmonkey/tree/update)
