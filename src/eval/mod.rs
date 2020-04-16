@@ -15,6 +15,7 @@ use errmsg::*;
 
 use ast::*;
 use object::environment::Environment;
+use std::collections::HashMap;
 
 const TRUE: object::Object = object::Object::Boolean(true);
 const FALSE: object::Object = object::Object::Boolean(false);
@@ -130,9 +131,36 @@ fn eval_expression(e: Expression, env: &mut Environment) -> Option<object::Objec
                 return Some(NULL);
             }
             Some(eval_index_expression(&exp1, &index))
+        },
+        Expression::Hashmap(args) => {
+            let hash = eval_hash_args(args, env);
+            Some(object::Object::Hash(hash))
         }
-        _ => Some(NULL),
     }
+}
+
+fn eval_hash_args(args: Vec<ast::HashItem>, env: &mut Environment) -> object::HashType {
+    let mut hash = object::HashType {
+        pairs: HashMap::new(),
+    };
+    for a in args.iter() {
+        let key = eval_expression(a.key.clone(), env);
+        let value = eval_expression(a.value.clone(), env);
+
+        let key = match key.unwrap() {
+            object::Object::String(s) => Some(object::HashKey::String(s)),
+            object::Object::Boolean(b) => Some(object::HashKey::Boolean(b)),
+            object::Object::Integer(d) => Some(object::HashKey::Integer(d)),
+            _ => None
+        };
+        if let Some(k) = key {
+            if let Some(v) = value {
+                hash.pairs.insert(k, v);
+            }
+        }
+    }
+
+    hash
 }
 
 fn eval_expressions(
@@ -1317,6 +1345,42 @@ mod tests {
                 ]),
             },
         ];
+
+        for t in tests.iter() {
+            let program = eval_program(t.input.clone());
+            assert_eq!(program, t.expected);
+        }
+    }
+
+    #[test]
+    fn test_hash() {
+        struct Test {
+            input: String,
+            expected: object::Object,
+        }
+
+        let tests = vec![Test {
+            input: String::from("{\"one\": 1, \"two\": 2, \"three\": 3};"),
+            expected: object::Object::Hash(object::HashType {
+                pairs: [
+                    (
+                        object::HashKey::String(String::from("one")),
+                        object::Object::Integer(1),
+                    ),
+                    (
+                        object::HashKey::String(String::from("two")),
+                        object::Object::Integer(2),
+                    ),
+                    (
+                        object::HashKey::String(String::from("three")),
+                        object::Object::Integer(3),
+                    ),
+                ]
+                .iter()
+                .cloned()
+                .collect::<HashMap<object::HashKey, object::Object>>(),
+            }),
+        }];
 
         for t in tests.iter() {
             let program = eval_program(t.input.clone());
