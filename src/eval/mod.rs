@@ -100,12 +100,11 @@ fn eval_expression(e: Expression, env: &mut Environment) -> Option<object::Objec
         Expression::Ident(name) => eval_ident(name, env),
         Expression::Function(args, body) => Some(object::Object::Function(args, body, env.clone())),
         Expression::Call(function, args) => {
-            /*
             if let Expression::Ident(s) = function.as_ref() {
                 if s == "quote" {
                     return Some(object::Object::Quote(args[0].clone()))
                 }
-            }*/
+            }
             let function = eval_expression(*function, env).unwrap();
             if function.is_err() {
                 return Some(function);
