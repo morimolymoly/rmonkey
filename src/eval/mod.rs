@@ -100,6 +100,12 @@ fn eval_expression(e: Expression, env: &mut Environment) -> Option<object::Objec
         Expression::Ident(name) => eval_ident(name, env),
         Expression::Function(args, body) => Some(object::Object::Function(args, body, env.clone())),
         Expression::Call(function, args) => {
+            /*
+            if let Expression::Ident(s) = function.as_ref() {
+                if s == "quote" {
+                    return Some(object::Object::Quote(args[0].clone()))
+                }
+            }*/
             let function = eval_expression(*function, env).unwrap();
             if function.is_err() {
                 return Some(function);
@@ -1485,6 +1491,38 @@ mod tests {
         }
     }
 
+    #[test]
+    fn test_quote() {
+        struct Test {
+            input: String,
+            expected: String,
+        }
+
+        let tests = vec![
+            Test {
+                input: String::from("quote(5);"),
+                expected: String::from("5"),
+            },
+            Test {
+                input: String::from("quote(5+8);"),
+                expected: String::from("(5 + 8)"),
+            },
+            Test {
+                input: String::from("quote(foobar);"),
+                expected: String::from("foobar"),
+            },
+            Test {
+                input: String::from("quote(foobar + barfoo);"),
+                expected: String::from("(foobar + barfoo)"),
+            },
+        ];
+
+        for t in tests.iter() {
+            let program = eval_program(t.input.clone());
+            assert_eq!(format!("{}", program), t.expected);
+        }
+    }
+
     fn eval_program(input: String) -> object::Object {
         let l = lexer::Lexer::new(input.clone());
         let mut p = parser::Parser::new(l);
@@ -1508,7 +1546,7 @@ mod tests {
         match obj {
             object::Object::Boolean(d) => assert_eq!(d, expected),
             NULL => panic!("NULL~~~"),
-            _ => panic!("result is not a object::Object::Integer"),
+            _ => panic!("result is not a object::Object::Boolean"),
         }
     }
 }

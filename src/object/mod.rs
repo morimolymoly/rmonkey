@@ -15,6 +15,7 @@ pub const BUILTIN_FUNCTION: &'static str = "BUILTIN_FUNCTION";
 pub const ARRAY: &'static str = "ARRAY";
 pub const DEBUG_FUNCTION: &'static str = "DEBUG_FUNCTION";
 pub const HASH: &'static str = "HASH";
+pub const QUOTE: &'static str = "QUOTE";
 
 type BuiltInFunction = fn(Vec<Object>) -> Object;
 
@@ -36,6 +37,7 @@ pub enum Object {
     Array(Vec<Box<Object>>),
     DebugFunction,
     Hash(HashType),
+    Quote(Box<Expression>),
 }
 
 impl std::fmt::Display for Object {
@@ -46,6 +48,7 @@ impl std::fmt::Display for Object {
             Object::Null => "NULL".to_string(),
             Object::String(s) => format!("{}", s),
             Object::BuiltinFunc(_) => format!("{}", BUILTIN_FUNCTION),
+            Object::Quote(e) => format!("{}", e),
             _ => "".to_string(),
         };
         write!(f, "{}", string)
@@ -78,6 +81,7 @@ impl Object {
             }
             Object::DebugFunction => format!("debug function"),
             Object::Hash(hash) => format!("{:?}", hash),
+            Object::Quote(e) => format!("{}", e),
         }
     }
     pub fn mytype(&self) -> String {
@@ -93,6 +97,7 @@ impl Object {
             Object::Array(_) => ARRAY.to_string(),
             Object::DebugFunction => DEBUG_FUNCTION.to_string(),
             Object::Hash(_) => HASH.to_string(),
+            Object::Quote(_) => QUOTE.to_string(),
         }
     }
 

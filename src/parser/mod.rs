@@ -119,7 +119,7 @@ impl Parser {
     }
 
     fn parse_expression_statement(&mut self) -> Option<Statement> {
-        let exp = match  self.parse_expression(Priority::LOWEST) {
+        let exp = match self.parse_expression(Priority::LOWEST) {
             Some(s) => s,
             None => return None,
         };
