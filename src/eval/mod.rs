@@ -102,7 +102,7 @@ fn eval_expression(e: Expression, env: &mut Environment) -> Option<object::Objec
         Expression::Call(function, args) => {
             if let Expression::Ident(s) = function.as_ref() {
                 if s == "quote" {
-                    return Some(object::Object::Quote(args[0].clone()))
+                    return Some(object::Object::Quote(args[0].clone()));
                 }
             }
             let function = eval_expression(*function, env).unwrap();
@@ -286,7 +286,7 @@ fn eval_prefix(
     right: Box<Expression>,
     env: &mut Environment,
 ) -> Option<object::Object> {
-    let exp = eval_expression(ast::unbox(right), env).unwrap();
+    let exp = eval_expression(*right, env).unwrap();
 
     if exp.is_err() {
         return Some(exp);
@@ -309,12 +309,12 @@ fn eval_infix(
     right: Box<Expression>,
     env: &mut Environment,
 ) -> Option<object::Object> {
-    let left = eval_expression(ast::unbox(left), env).unwrap();
+    let left = eval_expression(*left, env).unwrap();
     if left.is_err() {
         return Some(left);
     }
 
-    let right = eval_expression(ast::unbox(right), env).unwrap();
+    let right = eval_expression(*right, env).unwrap();
     if right.is_err() {
         return Some(right);
     }
@@ -1513,6 +1513,38 @@ mod tests {
             Test {
                 input: String::from("quote(foobar + barfoo);"),
                 expected: String::from("(foobar + barfoo)"),
+            },
+        ];
+
+        for t in tests.iter() {
+            let program = eval_program(t.input.clone());
+            assert_eq!(format!("{}", program), t.expected);
+        }
+    }
+
+    #[test]
+    fn test_quote_and_unquote() {
+        struct Test {
+            input: String,
+            expected: String,
+        }
+
+        let tests = vec![
+            Test {
+                input: String::from("quote(unquote(4));"),
+                expected: String::from("4"),
+            },
+            Test {
+                input: String::from("quote(unquote(4+4));"),
+                expected: String::from("8"),
+            },
+            Test {
+                input: String::from("quote(8 + unquote(4+4));"),
+                expected: String::from("(8 + 8)"),
+            },
+            Test {
+                input: String::from("quote(unquote(4+4) + 8);"),
+                expected: String::from("(8 + 8)"),
             },
         ];
 

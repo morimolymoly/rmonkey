@@ -1,7 +1,9 @@
 #[allow(dead_code)]
+mod modify;
 use crate::token;
 use std::fmt;
 
+#[derive(Debug, PartialEq, Clone, Eq)]
 pub struct Program {
     pub statements: Vec<Box<Statement>>,
 }
@@ -159,8 +161,4 @@ impl fmt::Display for Statement {
         };
         write!(f, "{}", string)
     }
-}
-
-pub fn unbox<T>(value: Box<T>) -> T {
-    *value
 }
