@@ -1,5 +1,5 @@
 #[allow(dead_code)]
-mod modify;
+pub mod modify;
 use crate::token;
 use std::fmt;
 

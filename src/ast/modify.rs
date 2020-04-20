@@ -1,10 +1,11 @@
 use crate::ast;
 use crate::token;
+use crate::object::environment::Environment;
 
-pub fn modify(p: &mut ast::Program, func: fn(ast::Expression) -> ast::Expression) -> ast::Program {
+pub fn modify(p: &mut ast::Program, env: &mut Environment, func: fn(ast::Expression, &mut Environment) -> ast::Expression) -> ast::Program {
     let mut new_stmt: Vec<Box<ast::Statement>> = Vec::new();
     for stmt in p.statements.iter() {
-        match modify_statement(*stmt.clone(), func) {
+        match modify_statement(*stmt.clone(), env, func) {
             Some(s) => {
                 new_stmt.push(Box::new(s));
             }
@@ -17,71 +18,71 @@ pub fn modify(p: &mut ast::Program, func: fn(ast::Expression) -> ast::Expression
     p.clone()
 }
 
-fn modify_statement(
-    stmt: ast::Statement,
-    func: fn(ast::Expression) -> ast::Expression,
+pub fn modify_statement(
+    stmt: ast::Statement , env: &mut Environment,
+    func: fn(ast::Expression, &mut Environment) -> ast::Expression,
 ) -> Option<ast::Statement> {
     match stmt {
-        ast::Statement::ExpStatement(e) => match modify_expression(e, func) {
+        ast::Statement::ExpStatement(e) => match modify_expression(e, env, func) {
             Some(s) => Some(ast::Statement::ExpStatement(s)),
             None => None,
         },
-        ast::Statement::Return(e) => match modify_expression(e, func) {
+        ast::Statement::Return(e) => match modify_expression(e, env, func) {
             Some(s) => Some(ast::Statement::Return(s)),
             None => None,
         },
-        ast::Statement::Let(e, value) => match modify_expression(value, func) {
+        ast::Statement::Let(e, value) => match modify_expression(value, env, func) {
             Some(s) => Some(ast::Statement::Let(e, s)),
             None => None,
         },
     }
 }
 
-fn modify_expression(
-    e: ast::Expression,
-    func: fn(ast::Expression) -> ast::Expression,
+pub fn modify_expression(
+    e: ast::Expression, env: &mut Environment,
+    func: fn(ast::Expression, &mut Environment) -> ast::Expression,
 ) -> Option<ast::Expression> {
     match e {
-        ast::Expression::Literal(_) => Some(func(e.clone())),
+        ast::Expression::Literal(_) => Some(func(e.clone(), env)),
         ast::Expression::Infix(token, left, right) => Some(ast::Expression::Infix(
             token,
-            Box::new(modify_expression(*left.clone(), func).unwrap()),
-            Box::new(modify_expression(*right.clone(), func).unwrap()),
+            Box::new(modify_expression(*left.clone(), env, func).unwrap()),
+            Box::new(modify_expression(*right.clone(), env, func).unwrap()),
         )),
         ast::Expression::Prefix(token, right) => Some(ast::Expression::Prefix(
             token,
-            Box::new(modify_expression(*right.clone(), func).unwrap()),
+            Box::new(modify_expression(*right.clone(), env, func).unwrap()),
         )),
         ast::Expression::Index(left, right) => Some(ast::Expression::Index(
-            Box::new(modify_expression(*left.clone(), func).unwrap()),
-            Box::new(modify_expression(*right.clone(), func).unwrap()),
+            Box::new(modify_expression(*left.clone(), env, func).unwrap()),
+            Box::new(modify_expression(*right.clone(), env, func).unwrap()),
         )),
         ast::Expression::If(cond, cons, alt) => Some(ast::Expression::If(
-            Box::new(modify_expression(*cond.clone(), func).unwrap()),
-            Box::new(modify_expression(*cons.clone(), func).unwrap()),
+            Box::new(modify_expression(*cond.clone(), env, func).unwrap()),
+            Box::new(modify_expression(*cons.clone(), env, func).unwrap()),
             Some(Box::new(
-                modify_expression(*alt.unwrap().clone(), func).unwrap(),
+                modify_expression(*alt.unwrap().clone(), env, func).unwrap(),
             )),
         )),
         ast::Expression::Block(stmt) => {
             let mut new_stmt: Vec<Box<ast::Statement>> = Vec::new();
             for s in stmt.iter() {
-                new_stmt.push(Box::new(modify_statement(*s.clone(), func).unwrap()));
+                new_stmt.push(Box::new(modify_statement(*s.clone(), env, func).unwrap()));
             }
             Some(ast::Expression::Block(new_stmt))
         }
         ast::Expression::Function(params, body) => {
             let mut new_params: Vec<Box<ast::Expression>> = Vec::new();
             for s in params.iter() {
-                new_params.push(Box::new(modify_expression(*s.clone(), func).unwrap()));
+                new_params.push(Box::new(modify_expression(*s.clone(), env, func).unwrap()));
             }
-            let body = Box::new(modify_expression(*body, func).unwrap());
+            let body = Box::new(modify_expression(*body, env, func).unwrap());
             Some(ast::Expression::Function(new_params, body))
         }
         ast::Expression::Array(args) => {
             let mut new_args: Vec<Box<ast::Expression>> = Vec::new();
             for s in args.iter() {
-                new_args.push(Box::new(modify_expression(*s.clone(), func).unwrap()));
+                new_args.push(Box::new(modify_expression(*s.clone(), env, func).unwrap()));
             }
             Some(ast::Expression::Array(new_args))
         }
@@ -89,13 +90,24 @@ fn modify_expression(
             let mut new_args: Vec<ast::HashItem> = Vec::new();
             for s in args.iter() {
                 new_args.push(ast::HashItem {
-                    key: modify_expression(s.key.clone(), func).unwrap(),
-                    value: modify_expression(s.value.clone(), func).unwrap(),
+                    key: modify_expression(s.key.clone(), env, func).unwrap(),
+                    value: modify_expression(s.value.clone(), env, func).unwrap(),
                 });
             }
             Some(ast::Expression::Hashmap(new_args))
+        },
+        ast::Expression::Call(_, _) => {
+            /*
+             let mut new_params: Vec<Box<ast::Expression>> = Vec::new();
+            for s in arguments.iter() {
+                new_params.push(Box::new(modify_expression(*s.clone(), func).unwrap()));
+            }*/
+            Some(func(e.clone(), env))
+        },
+        _ => {
+            println!("なとり〜〜");
+            Some(e.clone())
         }
-        _ => Some(e.clone()),
     }
 }
 
@@ -108,7 +120,7 @@ mod tests {
         let one = || ast::Expression::Literal(ast::Literal::Int(1));
         let two = || ast::Expression::Literal(ast::Literal::Int(2));
 
-        let turn_one_into_two = |e: ast::Expression| {
+        let turn_one_into_two = |e: ast::Expression, env: &mut Environment| {
             if let ast::Expression::Literal(ast::Literal::Int(_)) = e {
                 return ast::Expression::Literal(ast::Literal::Int(2));
             } else {
@@ -295,7 +307,7 @@ mod tests {
         ];
 
         for input in tests.iter() {
-            let modified = modify(&mut input.input.clone(), turn_one_into_two);
+            let modified = modify(&mut input.input.clone(), &mut Environment::new(), turn_one_into_two);
             assert_eq!(modified, input.expected)
         }
     }
