@@ -232,9 +232,7 @@ impl Parser {
                 }
 
                 let body = self.parse_block_statement().unwrap();
-                let mmm = Expression::Macro(parameters, Box::new(body));
-                println!("aaa {:?}", mmm);
-                Some(mmm)
+                Some(Expression::Macro(parameters, Box::new(body)))
             }
             _ => None,
         }

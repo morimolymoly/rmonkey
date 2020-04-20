@@ -1,4 +1,5 @@
-use crate::ast::{Expression, Program, Statement};
+use crate::ast::modify;
+use crate::ast::{Expression, Program, Statement, Literal};
 use crate::eval;
 use crate::lexer;
 use crate::object;
@@ -38,6 +39,75 @@ fn add_macro(stmt: Statement, env: &mut object::environment::Environment) {
                 env.set(s, mmm);
             }
         }
+    }
+}
+
+fn func(e: Expression, env: &mut Environment) -> Expression {
+    match &e {
+        Expression::Call(_function, _args) => {
+            let mymacro = is_macro_call(e.clone(), env);
+            match mymacro {
+                Some(s) => {
+                    let args = quote_args(e.clone());
+                    let mut eval_env = extend_macro_env(s.clone(), args);
+
+                    if let object::Object::Macro(_, body, _) = s {
+                        let evaluated = eval::eval_expression(*body, &mut eval_env).unwrap();
+                        if let object::Object::Quote(quote_e) = evaluated {
+                            return *quote_e;
+                        } else {
+                            panic!("we only suppot returning AST nodes from macros")
+                        }
+                    }else {
+                        Expression::Literal(Literal::Bool(true))
+                    }
+                },
+                None => Expression::Literal(Literal::Bool(true))
+            }
+        },
+        _  => Expression::Literal(Literal::Bool(true))
+    }
+}
+
+fn is_macro_call(exp: Expression, env: &mut Environment) -> Option<object::Object> {
+    return match exp {
+        Expression::Call(function, _) => match *function {
+            Expression::Ident(s) => env.get(&s),
+            _ => None,
+        },
+        _ => None,
+    };
+}
+
+fn quote_args(exp: Expression) -> Vec<object::Object> {
+    let mut ret: Vec<object::Object> = Vec::new();
+    match exp {
+        Expression::Call(_, args) => {
+            for a in args.iter() {
+                ret.push(object::Object::Quote(a.clone()));
+            }
+        },
+        _ => {}
+    }
+    ret
+}
+
+fn expand_macro(program: &mut Program, env: &mut Environment) -> Program {
+    modify::modify(program, env, func)
+}
+
+fn extend_macro_env(mymacro: object::Object, args: Vec<object::Object>) -> Environment {
+    match mymacro {
+        object::Object::Macro(arg, _, env) => {
+            let mut extended = Environment::new_enclosed_environment(env);
+            for (idx, a) in arg.iter().enumerate() {
+                if let Expression::Ident(s) = &**a {
+                    extended.set(s.to_string(), args[idx].clone());
+                }
+            }
+            extended
+        },
+        _ => Environment::new(),
     }
 }
 
@@ -114,8 +184,8 @@ mod tests {
 
             {
                 let mymacro = env.get(&String::from("mymacro")).unwrap();
-                if let object::Object::Macro(_, _, _)  = mymacro {
-                }else{
+                if let object::Object::Macro(_, _, _) = mymacro {
+                } else {
                     panic!("mymacro is not a macro");
                 }
                 assert_eq!(mymacro.inspect(), "macro(x, y){(x + y)}")
@@ -130,6 +200,60 @@ mod tests {
             } else {
                 panic!("function is not in your program");
             }
+        }
+    }
+
+    #[test]
+    fn test_expand_macro() {
+        struct Test {
+            input: String,
+            expected: String,
+        }
+
+        let tests = vec![
+            Test {
+                input: String::from(
+                    "
+                let infixexp = macro() {quote(1+2); };
+                infixexp();
+                ",
+                ),
+                expected: String::from("(1 + 2)"),
+            },
+            Test {
+                input: String::from(
+                    "
+                let reverse = macro(a, b) { quote(unquote(b) - unquote(a)); };
+                reverse(2 + 2, 10 - 5)
+                ",
+                ),
+                expected: String::from("((10 - 5) - (2 + 2))"),
+            },
+            Test {
+                input: String::from(
+                    "
+                let unless = macro(condition, consequence, alternative) {
+                    quote(if (!(unquote(condition))) {
+                        unquote(consequence);
+                    } else {
+                        unquote(alternative);
+                    });
+                };
+
+                unless(10>5, puts(\"not greater\"), puts(\"greater\"));
+                ",
+                ),
+                expected: String::from("if(!(10 > 5)){puts(not greater)}else{puts(greater)}"),
+            },
+        ];
+        for t in tests.iter() {
+            let l = lexer::Lexer::new(t.input.clone());
+            let mut p = parser::Parser::new(l);
+            let mut program = p.parse_program().unwrap();
+            let mut env = Environment::new();
+            define_macro(&mut program, &mut env);
+            let expanded = expand_macro(&mut program, &mut env);
+            assert_eq!(format!("{}", expanded), t.expected);
         }
     }
 }

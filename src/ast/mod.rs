@@ -102,9 +102,9 @@ impl fmt::Display for Expression {
                 right
             ),
             Expression::If(condition, consequence, alternative) => {
-                let string = format!("if{} {}", condition, consequence);
+                let string = format!("if{}{{{}}}", condition, consequence);
                 let string2 = match alternative {
-                    Some(alt) => format!(" else {}", alt),
+                    Some(alt) => format!("else{{{}}}", alt),
                     None => String::from(""),
                 };
                 format!("{}{}", string, string2)

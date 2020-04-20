@@ -89,7 +89,7 @@ fn eval_statement(s: Statement, env: &mut Environment) -> Option<object::Object>
     }
 }
 
-fn eval_expression(e: Expression, env: &mut Environment) -> Option<object::Object> {
+pub fn eval_expression(e: Expression, env: &mut Environment) -> Option<object::Object> {
     match e {
         Expression::Literal(d) => eval_literal(d, env),
         Expression::Prefix(tok, right) => eval_prefix(tok, right, env),
@@ -315,7 +315,8 @@ fn builtin_function(name: String, env: &mut Environment) -> Option<object::Objec
         "dbg_print" => {
             println!("dbg!");
             Some(object::Object::DebugFunction)
-        }
+        },
+        "puts" => Some(object::Object::BuiltinFunc(Some(builtin_puts_function))),
         _ => None,
     }
 }
