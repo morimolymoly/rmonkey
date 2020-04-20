@@ -1,7 +1,9 @@
 #[allow(dead_code)]
+pub mod modify;
 use crate::token;
 use std::fmt;
 
+#[derive(Debug, PartialEq, Clone, Eq)]
 pub struct Program {
     pub statements: Vec<Box<Statement>>,
 }
@@ -75,6 +77,8 @@ pub enum Expression {
     Array(Vec<Box<Expression>>),
     Index(Box<Expression>, Box<Expression>),
     Hashmap(Vec<HashItem>),
+    // parameters body
+    Macro(Vec<Box<Expression>>, Box<Expression>),
 }
 
 impl fmt::Display for Expression {
@@ -98,9 +102,9 @@ impl fmt::Display for Expression {
                 right
             ),
             Expression::If(condition, consequence, alternative) => {
-                let string = format!("if{} {}", condition, consequence);
+                let string = format!("if{}{{{}}}", condition, consequence);
                 let string2 = match alternative {
-                    Some(alt) => format!(" else {}", alt),
+                    Some(alt) => format!("else{{{}}}", alt),
                     None => String::from(""),
                 };
                 format!("{}{}", string, string2)
@@ -135,6 +139,13 @@ impl fmt::Display for Expression {
                 }
                 format!("{{{}}}", args.join(", "))
             }
+            Expression::Macro(params, body) => {
+                let mut param_strings: Vec<String> = Vec::new();
+                for p in params.iter() {
+                    param_strings.push(format!("{}", p));
+                }
+                format!("macro({}){}", param_strings.join(","), body)
+            }
         };
         write!(f, "{}", string)
     }
@@ -159,8 +170,4 @@ impl fmt::Display for Statement {
         };
         write!(f, "{}", string)
     }
-}
-
-pub fn unbox<T>(value: Box<T>) -> T {
-    *value
 }

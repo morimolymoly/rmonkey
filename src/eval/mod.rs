@@ -9,6 +9,7 @@ use crate::token;
 
 mod builtin;
 mod errmsg;
+pub mod macro_expansion;
 
 use builtin::*;
 use errmsg::*;
@@ -88,7 +89,7 @@ fn eval_statement(s: Statement, env: &mut Environment) -> Option<object::Object>
     }
 }
 
-fn eval_expression(e: Expression, env: &mut Environment) -> Option<object::Object> {
+pub fn eval_expression(e: Expression, env: &mut Environment) -> Option<object::Object> {
     match e {
         Expression::Literal(d) => eval_literal(d, env),
         Expression::Prefix(tok, right) => eval_prefix(tok, right, env),
@@ -100,6 +101,11 @@ fn eval_expression(e: Expression, env: &mut Environment) -> Option<object::Objec
         Expression::Ident(name) => eval_ident(name, env),
         Expression::Function(args, body) => Some(object::Object::Function(args, body, env.clone())),
         Expression::Call(function, args) => {
+            if let Expression::Ident(s) = function.as_ref() {
+                if s == "quote" {
+                    return Some(quote(*args[0].clone(), env));
+                }
+            }
             let function = eval_expression(*function, env).unwrap();
             if function.is_err() {
                 return Some(function);
@@ -136,6 +142,73 @@ fn eval_expression(e: Expression, env: &mut Environment) -> Option<object::Objec
             let hash = eval_hash_args(args, env);
             Some(object::Object::Hash(hash))
         }
+        _ => Some(NULL),
+    }
+}
+
+fn quote(e: Expression, env: &mut Environment) -> object::Object {
+    let node = eval_unquote_calls(e, env);
+    object::Object::Quote(Box::new(node))
+}
+
+fn convert_object_to_ast_expression(obj: object::Object) -> Expression {
+    match obj {
+        object::Object::Integer(d) => Expression::Literal(Literal::Int(d)),
+        object::Object::Boolean(d) => Expression::Literal(Literal::Bool(d)),
+        object::Object::Quote(e) => *e.clone(),
+        _ => Expression::Literal(Literal::Int(0)),
+    }
+}
+
+fn func(e: Expression, env: &mut Environment) -> Expression {
+    if !is_unqote_call(e.clone()) {
+        return e.clone();
+    }
+    match &e {
+        Expression::Call(_, args) => {
+            if args.len() != 1 {
+                return e.clone();
+            }
+            let unquoted = eval_expression(*args[0].clone(), env).unwrap();
+            return convert_object_to_ast_expression(unquoted);
+        }
+        _ => e.clone(),
+    }
+}
+
+fn eval_unquote_calls(quoted: Expression, env: &mut Environment) -> Expression {
+    /*let mut func = |e: Expression| {
+        if !is_unqote_call(e.clone()) {
+            return e.clone();
+        }
+        match &e {
+            Expression::Call(_, args) => {
+                if args.len() != 1 {
+                    return e.clone();
+                }
+
+                let unquoted = eval_expression(e.clone(), env).unwrap();
+                return e.clone();
+            }
+            _ => e.clone(),
+        }
+    };*/
+    let call = ast::modify::modify_expression(quoted.clone(), env, func);
+    match call {
+        Some(s) => s,
+        None => quoted.clone(),
+    }
+}
+
+fn is_unqote_call(e: Expression) -> bool {
+    match e {
+        Expression::Call(function, _) => {
+            if let Expression::Ident(s) = function.as_ref() {
+                return s == "unquote";
+            }
+            false
+        }
+        _ => false,
     }
 }
 
@@ -243,6 +316,7 @@ fn builtin_function(name: String, env: &mut Environment) -> Option<object::Objec
             println!("dbg!");
             Some(object::Object::DebugFunction)
         }
+        "puts" => Some(object::Object::BuiltinFunc(Some(builtin_puts_function))),
         _ => None,
     }
 }
@@ -281,7 +355,7 @@ fn eval_prefix(
     right: Box<Expression>,
     env: &mut Environment,
 ) -> Option<object::Object> {
-    let exp = eval_expression(ast::unbox(right), env).unwrap();
+    let exp = eval_expression(*right, env).unwrap();
 
     if exp.is_err() {
         return Some(exp);
@@ -304,12 +378,12 @@ fn eval_infix(
     right: Box<Expression>,
     env: &mut Environment,
 ) -> Option<object::Object> {
-    let left = eval_expression(ast::unbox(left), env).unwrap();
+    let left = eval_expression(*left, env).unwrap();
     if left.is_err() {
         return Some(left);
     }
 
-    let right = eval_expression(ast::unbox(right), env).unwrap();
+    let right = eval_expression(*right, env).unwrap();
     if right.is_err() {
         return Some(right);
     }
@@ -1485,6 +1559,88 @@ mod tests {
         }
     }
 
+    #[test]
+    fn test_quote() {
+        struct Test {
+            input: String,
+            expected: String,
+        }
+
+        let tests = vec![
+            Test {
+                input: String::from("quote(5);"),
+                expected: String::from("5"),
+            },
+            Test {
+                input: String::from("quote(5+8);"),
+                expected: String::from("(5 + 8)"),
+            },
+            Test {
+                input: String::from("quote(foobar);"),
+                expected: String::from("foobar"),
+            },
+            Test {
+                input: String::from("quote(foobar + barfoo);"),
+                expected: String::from("(foobar + barfoo)"),
+            },
+        ];
+
+        for t in tests.iter() {
+            let program = eval_program(t.input.clone());
+            assert_eq!(format!("{}", program), t.expected);
+        }
+    }
+
+    #[test]
+    fn test_quote_and_unquote() {
+        struct Test {
+            input: String,
+            expected: String,
+        }
+
+        let tests = vec![
+            Test {
+                input: String::from("quote(unquote(4));"),
+                expected: String::from("4"),
+            },
+            Test {
+                input: String::from("quote(unquote(4+4));"),
+                expected: String::from("8"),
+            },
+            Test {
+                input: String::from("quote(8 + unquote(4+4));"),
+                expected: String::from("(8 + 8)"),
+            },
+            Test {
+                input: String::from("quote(unquote(4+4) + 8);"),
+                expected: String::from("(8 + 8)"),
+            },
+            Test {
+                input: String::from("quote(unquote(true));"),
+                expected: String::from("true"),
+            },
+            Test {
+                input: String::from("quote(unquote(true == false));"),
+                expected: String::from("false"),
+            },
+            Test {
+                input: String::from("quote(unquote(quote(4+4)));"),
+                expected: String::from("(4 + 4)"),
+            },
+            Test {
+                input: String::from(
+                    "let quotedie = quote(4 + 4); quote((unquote(4+4)) + unquote(quotedie));",
+                ),
+                expected: String::from("(8 + (4 + 4))"),
+            },
+        ];
+
+        for t in tests.iter() {
+            let program = eval_program(t.input.clone());
+            assert_eq!(format!("{}", program), t.expected);
+        }
+    }
+
     fn eval_program(input: String) -> object::Object {
         let l = lexer::Lexer::new(input.clone());
         let mut p = parser::Parser::new(l);
@@ -1508,7 +1664,7 @@ mod tests {
         match obj {
             object::Object::Boolean(d) => assert_eq!(d, expected),
             NULL => panic!("NULL~~~"),
-            _ => panic!("result is not a object::Object::Integer"),
+            _ => panic!("result is not a object::Object::Boolean"),
         }
     }
 }

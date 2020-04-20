@@ -137,3 +137,14 @@ pub fn builtin_push_function(arg: Vec<object::Object>) -> object::Object {
         }
     }
 }
+
+pub fn builtin_puts_function(arg: Vec<object::Object>) -> object::Object {
+    if arg.len() != 1 {
+        return object::Object::Error(format!("{}{}", ERR_BUILT_IN_ARG_NUM, arg.len()));
+    }
+    let print = arg[0].clone();
+    if let object::Object::String(s) = print {
+        println!("{}", s);
+    }
+    object::Object::DebugFunction
+}

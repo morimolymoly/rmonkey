@@ -8,11 +8,11 @@ use crate::lexer;
 use crate::object;
 use crate::parser;
 use crate::token;
-
 use std::io::{self, stdin, Read, Write};
 
 pub fn start() {
     let mut env = object::environment::Environment::new();
+    let mut macro_env = object::environment::Environment::new();
     loop {
         print!(">> ");
         io::stdout().flush().unwrap();
@@ -23,9 +23,12 @@ pub fn start() {
         let l = lexer::Lexer::new(s);
 
         let mut p = parser::Parser::new(l);
-        let program = p.parse_program();
+        let mut program = p.parse_program().unwrap();
 
-        let evaluated = eval::eval(program.unwrap(), &mut env).unwrap();
+        eval::macro_expansion::define_macros(&mut program, &mut env);
+        let expanded = eval::macro_expansion::expand_macros(&mut program, &mut env);
+
+        let evaluated = eval::eval(expanded, &mut env).unwrap();
 
         println!("{}", evaluated.inspect());
     }
