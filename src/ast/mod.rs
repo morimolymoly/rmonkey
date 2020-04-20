@@ -77,6 +77,8 @@ pub enum Expression {
     Array(Vec<Box<Expression>>),
     Index(Box<Expression>, Box<Expression>),
     Hashmap(Vec<HashItem>),
+    // parameters body
+    Macro(Vec<Box<Expression>>, Box<Expression>),
 }
 
 impl fmt::Display for Expression {
@@ -136,6 +138,13 @@ impl fmt::Display for Expression {
                     args.push(format!("{}", a));
                 }
                 format!("{{{}}}", args.join(", "))
+            }
+            Expression::Macro(params, body) => {
+                let mut param_strings: Vec<String> = Vec::new();
+                for p in params.iter() {
+                    param_strings.push(format!("{}", p));
+                }
+                format!("macro({}){}", param_strings.join(","), body)
             }
         };
         write!(f, "{}", string)

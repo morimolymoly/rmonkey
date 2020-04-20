@@ -224,6 +224,8 @@ mod tests {
             [1, 2];
 
             {\"key\":\"value\"};
+
+            macro (x, y) { x + y };
         ",
         );
 
@@ -319,6 +321,18 @@ mod tests {
             token::Token::String(String::from("key")),
             token::Token::Colon,
             token::Token::String(String::from("value")),
+            token::Token::RBrace,
+            token::Token::Semicolon,
+            token::Token::Macro,
+            token::Token::LParen,
+            token::Token::Ident(String::from("x")),
+            token::Token::Comma,
+            token::Token::Ident(String::from("y")),
+            token::Token::RParen,
+            token::Token::LBrace,
+            token::Token::Ident(String::from("x")),
+            token::Token::Plus,
+            token::Token::Ident(String::from("y")),
             token::Token::RBrace,
             token::Token::Semicolon,
             token::Token::EOF,

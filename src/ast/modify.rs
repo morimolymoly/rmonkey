@@ -1,8 +1,12 @@
 use crate::ast;
-use crate::token;
 use crate::object::environment::Environment;
+use crate::token;
 
-pub fn modify(p: &mut ast::Program, env: &mut Environment, func: fn(ast::Expression, &mut Environment) -> ast::Expression) -> ast::Program {
+pub fn modify(
+    p: &mut ast::Program,
+    env: &mut Environment,
+    func: fn(ast::Expression, &mut Environment) -> ast::Expression,
+) -> ast::Program {
     let mut new_stmt: Vec<Box<ast::Statement>> = Vec::new();
     for stmt in p.statements.iter() {
         match modify_statement(*stmt.clone(), env, func) {
@@ -19,7 +23,8 @@ pub fn modify(p: &mut ast::Program, env: &mut Environment, func: fn(ast::Express
 }
 
 pub fn modify_statement(
-    stmt: ast::Statement , env: &mut Environment,
+    stmt: ast::Statement,
+    env: &mut Environment,
     func: fn(ast::Expression, &mut Environment) -> ast::Expression,
 ) -> Option<ast::Statement> {
     match stmt {
@@ -39,7 +44,8 @@ pub fn modify_statement(
 }
 
 pub fn modify_expression(
-    e: ast::Expression, env: &mut Environment,
+    e: ast::Expression,
+    env: &mut Environment,
     func: fn(ast::Expression, &mut Environment) -> ast::Expression,
 ) -> Option<ast::Expression> {
     match e {
@@ -95,7 +101,7 @@ pub fn modify_expression(
                 });
             }
             Some(ast::Expression::Hashmap(new_args))
-        },
+        }
         ast::Expression::Call(_, _) => {
             /*
              let mut new_params: Vec<Box<ast::Expression>> = Vec::new();
@@ -103,11 +109,8 @@ pub fn modify_expression(
                 new_params.push(Box::new(modify_expression(*s.clone(), func).unwrap()));
             }*/
             Some(func(e.clone(), env))
-        },
-        _ => {
-            println!("なとり〜〜");
-            Some(e.clone())
         }
+        _ => Some(e.clone()),
     }
 }
 
@@ -307,7 +310,11 @@ mod tests {
         ];
 
         for input in tests.iter() {
-            let modified = modify(&mut input.input.clone(), &mut Environment::new(), turn_one_into_two);
+            let modified = modify(
+                &mut input.input.clone(),
+                &mut Environment::new(),
+                turn_one_into_two,
+            );
             assert_eq!(modified, input.expected)
         }
     }

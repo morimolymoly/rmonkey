@@ -220,6 +220,22 @@ impl Parser {
                 self.parse_expression_arguments(token::Token::RBracket),
             )),
             token::Token::LBrace => self.parse_hash(),
+            token::Token::Macro => {
+                if !self.expect_peek(token::Token::LParen) {
+                    return None;
+                }
+
+                let parameters = self.parse_function_parameters();
+
+                if !self.expect_peek(token::Token::LBrace) {
+                    return None;
+                }
+
+                let body = self.parse_block_statement().unwrap();
+                let mmm = Expression::Macro(parameters, Box::new(body));
+                println!("aaa {:?}", mmm);
+                Some(mmm)
+            }
             _ => None,
         }
     }
@@ -1081,6 +1097,63 @@ mod tests {
                         value: Expression::Literal(Literal::Int(3)),
                     },
                 ])),
+            },
+        ];
+
+        for test in tests.iter() {
+            let program = get_program(test.input.clone());
+            if program.statements.len() != 1 {
+                panic!(
+                    "program.statements does not contain 1 statements, got={}",
+                    program.statements.len()
+                );
+            }
+            assert_eq!(*program.statements[0], test.expected);
+        }
+    }
+
+    #[test]
+    fn test_macro_literal_parsing() {
+        struct Test {
+            input: String,
+            expected: Statement,
+        }
+
+        let tests = vec![
+            Test {
+                input: String::from("macro(x,y){x + y};"),
+                expected: Statement::ExpStatement(Expression::Macro(
+                    vec![
+                        Box::new(Expression::Ident(String::from("x"))),
+                        Box::new(Expression::Ident(String::from("y"))),
+                    ],
+                    Box::new(Expression::Block(vec![Box::new(Statement::ExpStatement(
+                        Expression::Infix(
+                            token::Token::Plus,
+                            Box::new(Expression::Ident(String::from("x"))),
+                            Box::new(Expression::Ident(String::from("y"))),
+                        ),
+                    ))])),
+                )),
+            },
+            Test {
+                input: String::from("let aaa = fn(x,y){x+y;};"),
+                expected: Statement::Let(
+                    Expression::Ident(String::from("aaa")),
+                    Expression::Function(
+                        vec![
+                            Box::new(Expression::Ident(String::from("x"))),
+                            Box::new(Expression::Ident(String::from("y"))),
+                        ],
+                        Box::new(Expression::Block(vec![Box::new(Statement::ExpStatement(
+                            Expression::Infix(
+                                token::Token::Plus,
+                                Box::new(Expression::Ident(String::from("x"))),
+                                Box::new(Expression::Ident(String::from("y"))),
+                            ),
+                        ))])),
+                    ),
+                ),
             },
         ];
 

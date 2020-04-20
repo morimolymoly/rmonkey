@@ -32,6 +32,7 @@ pub enum Token {
     LBracket,
     RBracket,
     Colon,
+    Macro,
 }
 
 pub fn token_from_literal(literal: String) -> Token {
@@ -62,6 +63,7 @@ pub fn token_from_literal(literal: String) -> Token {
         "[" => Token::RBracket,
         "]" => Token::LBracket,
         ":" => Token::Colon,
+        "macro" => Token::Macro,
         _ => Token::Ident(literal),
     }
 }
@@ -96,6 +98,7 @@ pub fn string_from_token(token: Token) -> String {
         Token::LBracket => String::from("["),
         Token::RBracket => String::from("]"),
         Token::Colon => String::from(":"),
+        Token::Macro => String::from("macro"),
         _ => String::from(""),
     }
 }

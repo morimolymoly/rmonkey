@@ -9,6 +9,7 @@ use crate::token;
 
 mod builtin;
 mod errmsg;
+mod macro_expansion;
 
 use builtin::*;
 use errmsg::*;
@@ -141,6 +142,7 @@ fn eval_expression(e: Expression, env: &mut Environment) -> Option<object::Objec
             let hash = eval_hash_args(args, env);
             Some(object::Object::Hash(hash))
         }
+        _ => Some(NULL),
     }
 }
 
@@ -154,12 +156,11 @@ fn convert_object_to_ast_expression(obj: object::Object) -> Expression {
         object::Object::Integer(d) => Expression::Literal(Literal::Int(d)),
         object::Object::Boolean(d) => Expression::Literal(Literal::Bool(d)),
         object::Object::Quote(e) => *e.clone(),
-        _ =>  Expression::Literal(Literal::Int(0))
+        _ => Expression::Literal(Literal::Int(0)),
     }
 }
 
 fn func(e: Expression, env: &mut Environment) -> Expression {
-    println!("func {:?}", e);
     if !is_unqote_call(e.clone()) {
         return e.clone();
     }
@@ -169,7 +170,6 @@ fn func(e: Expression, env: &mut Environment) -> Expression {
                 return e.clone();
             }
             let unquoted = eval_expression(*args[0].clone(), env).unwrap();
-            println!("func {:?}", unquoted);
             return convert_object_to_ast_expression(unquoted);
         }
         _ => e.clone(),
@@ -193,7 +193,6 @@ fn eval_unquote_calls(quoted: Expression, env: &mut Environment) -> Expression {
             _ => e.clone(),
         }
     };*/
-    println!("eval_unquote_calls {:?}", quoted);
     let call = ast::modify::modify_expression(quoted.clone(), env, func);
     match call {
         Some(s) => s,
@@ -1628,7 +1627,9 @@ mod tests {
                 expected: String::from("(4 + 4)"),
             },
             Test {
-                input: String::from("let quotedie = quote(4 + 4); quote((unquote(4+4)) + unquote(quotedie));"),
+                input: String::from(
+                    "let quotedie = quote(4 + 4); quote((unquote(4+4)) + unquote(quotedie));",
+                ),
                 expected: String::from("(8 + (4 + 4))"),
             },
         ];
