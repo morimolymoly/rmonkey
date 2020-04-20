@@ -329,14 +329,14 @@ fn eval_infix(
 
     match left {
         object::Object::Integer(_) => {
-            if let object::Object::String(_) = right {
-                return eval_string_infix_expression(&tok, &left, &right, env);
+            if let object::Object::Integer(_) = right {
+                return eval_integer_infix_expression(&tok, &left, &right, env);
             }
             return err_obj;
         }
         object::Object::Boolean(_) => {
-            if let object::Object::String(_) = right {
-                return eval_string_infix_expression(&tok, &left, &right, env);
+            if let object::Object::Boolean(_) = right {
+                return eval_boolean_infix_expression(&tok, &left, &right, env);
             }
             return err_obj;
         }
