@@ -1,4 +1,5 @@
 # rmonkey
+[![Build Status](https://travis-ci.org/morimolymoly/rmonkey.svg?branch=master)](https://travis-ci.org/morimolymoly/rmonkey)  
 rmonkey is a tiny interpreter written in Rust.  
 
 # HowToUse
