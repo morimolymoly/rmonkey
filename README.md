@@ -64,6 +64,11 @@ null
 2
 >> hash[4]
 4
+>> let unless = macro(condition, consequence, alternative) {quote(if (!(unquote(condition))) {unquote(consequence);} else {unquote(alternative);});};
+null
+>> unless(10>5, puts("not greater"), puts("greater"));
+greater
+debug function
 ```
 
 # Referrence
