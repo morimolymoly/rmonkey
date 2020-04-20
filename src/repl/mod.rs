@@ -25,8 +25,8 @@ pub fn start() {
         let mut p = parser::Parser::new(l);
         let mut program = p.parse_program().unwrap();
 
-        eval::macro_expansion::define_macros(&mut program, &mut env);
-        let expanded = eval::macro_expansion::expand_macros(&mut program, &mut env);
+        eval::macro_expansion::define_macros(&mut program, &mut macro_env);
+        let expanded = eval::macro_expansion::expand_macros(&mut program, &mut macro_env);
 
         let evaluated = eval::eval(expanded, &mut env).unwrap();
 

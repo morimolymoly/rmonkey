@@ -59,13 +59,13 @@ fn func(e: Expression, env: &mut Environment) -> Expression {
                             panic!("we only suppot returning AST nodes from macros")
                         }
                     } else {
-                        Expression::Literal(Literal::Bool(true))
+                        e
                     }
                 }
-                None => Expression::Literal(Literal::Bool(true)),
+                None => e,
             }
         }
-        _ => Expression::Literal(Literal::Bool(true)),
+        _ => e,
     }
 }
 
