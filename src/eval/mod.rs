@@ -9,7 +9,7 @@ use crate::token;
 
 mod builtin;
 mod errmsg;
-mod macro_expansion;
+pub mod macro_expansion;
 
 use builtin::*;
 use errmsg::*;
@@ -315,7 +315,7 @@ fn builtin_function(name: String, env: &mut Environment) -> Option<object::Objec
         "dbg_print" => {
             println!("dbg!");
             Some(object::Object::DebugFunction)
-        },
+        }
         "puts" => Some(object::Object::BuiltinFunc(Some(builtin_puts_function))),
         _ => None,
     }

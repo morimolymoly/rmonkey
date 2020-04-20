@@ -1,5 +1,5 @@
 use crate::ast::modify;
-use crate::ast::{Expression, Program, Statement, Literal};
+use crate::ast::{Expression, Literal, Program, Statement};
 use crate::eval;
 use crate::lexer;
 use crate::object;
@@ -7,7 +7,7 @@ use crate::object::environment::Environment;
 use crate::parser;
 use crate::token;
 
-fn define_macro(program: &mut Program, env: &mut Environment) {
+pub fn define_macros(program: &mut Program, env: &mut Environment) {
     let mut def_index: Vec<usize> = Vec::new();
 
     for (i, stmt) in program.statements.iter().enumerate() {
@@ -58,14 +58,14 @@ fn func(e: Expression, env: &mut Environment) -> Expression {
                         } else {
                             panic!("we only suppot returning AST nodes from macros")
                         }
-                    }else {
+                    } else {
                         Expression::Literal(Literal::Bool(true))
                     }
-                },
-                None => Expression::Literal(Literal::Bool(true))
+                }
+                None => Expression::Literal(Literal::Bool(true)),
             }
-        },
-        _  => Expression::Literal(Literal::Bool(true))
+        }
+        _ => Expression::Literal(Literal::Bool(true)),
     }
 }
 
@@ -86,13 +86,13 @@ fn quote_args(exp: Expression) -> Vec<object::Object> {
             for a in args.iter() {
                 ret.push(object::Object::Quote(a.clone()));
             }
-        },
+        }
         _ => {}
     }
     ret
 }
 
-fn expand_macro(program: &mut Program, env: &mut Environment) -> Program {
+pub fn expand_macros(program: &mut Program, env: &mut Environment) -> Program {
     modify::modify(program, env, func)
 }
 
@@ -106,7 +106,7 @@ fn extend_macro_env(mymacro: object::Object, args: Vec<object::Object>) -> Envir
                 }
             }
             extended
-        },
+        }
         _ => Environment::new(),
     }
 }
@@ -168,7 +168,7 @@ mod tests {
             let mut p = parser::Parser::new(l);
             let mut program = p.parse_program().unwrap();
             let mut env = Environment::new();
-            define_macro(&mut program, &mut env);
+            define_macros(&mut program, &mut env);
 
             {
                 let number = env.get(&String::from("number"));
@@ -251,8 +251,8 @@ mod tests {
             let mut p = parser::Parser::new(l);
             let mut program = p.parse_program().unwrap();
             let mut env = Environment::new();
-            define_macro(&mut program, &mut env);
-            let expanded = expand_macro(&mut program, &mut env);
+            define_macros(&mut program, &mut env);
+            let expanded = expand_macros(&mut program, &mut env);
             assert_eq!(format!("{}", expanded), t.expected);
         }
     }

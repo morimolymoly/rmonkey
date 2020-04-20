@@ -123,7 +123,7 @@ mod tests {
         let one = || ast::Expression::Literal(ast::Literal::Int(1));
         let two = || ast::Expression::Literal(ast::Literal::Int(2));
 
-        let turn_one_into_two = |e: ast::Expression, env: &mut Environment| {
+        let turn_one_into_two = |e: ast::Expression, _env: &mut Environment| {
             if let ast::Expression::Literal(ast::Literal::Int(_)) = e {
                 return ast::Expression::Literal(ast::Literal::Int(2));
             } else {
